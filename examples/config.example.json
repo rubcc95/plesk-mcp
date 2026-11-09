@@ -1,0 +1,42 @@
+{
+  "defaultServer": "prod-mundopc",
+  "servers": [
+    {
+      "name": "prod-mundopc",
+      "url": "https://plesk.mundopc.com:8443",
+      "auth": {
+        "mode": "apiKey",
+        "apiKey": "env:PLESK_MUNDOPC_KEY"
+      },
+      "dbUser": "db_admin",
+      "dbPass": "env:PLESK_MUNDOPC_DB_PASS"
+    },
+    {
+      "name": "cliente-x",
+      "url": "https://plesk.cliente-x.com:8443",
+      "auth": {
+        "mode": "basic",
+        "username": "admin",
+        "password": "env:PLESK_CLIENTE_PASSWORD"
+      },
+      "dbUser": "db_admin",
+      "dbPass": "env:PLESK_CLIENTE_DB_PASS"
+    }
+  ],
+  "localDatabases": [
+    {
+      "name": "ballena",
+      "host": "192.168.1.50",
+      "port": 3306,
+      "user": "root",
+      "password": "env:MYSQL_BALLENA_PASSWORD"
+    },
+    {
+      "name": "elefante",
+      "host": "192.168.1.51",
+      "port": 3306,
+      "user": "root",
+      "password": "env:MYSQL_ELEFANTE_PASSWORD"
+    }
+  ]
+}
