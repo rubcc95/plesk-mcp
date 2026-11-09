@@ -90,6 +90,77 @@ directory. If your client supports `cwd`, point it at the project that contains
 
 Otherwise, use the global config file, which is always found.
 
+### Claude Code
+
+Claude Code runs the server as a local stdio process. Add it to the project's
+`.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "plesk": {
+      "command": "npx",
+      "args": ["-y", "@rubcc95/plesk-mcp"],
+      "env": {
+        "PLESK_MCP_ACCESS": "client",
+        "PLESK_PROJECT_ROOT": "${CLAUDE_PROJECT_DIR:-.}"
+      }
+    }
+  }
+}
+```
+
+Claude Code sets `CLAUDE_PROJECT_DIR` for stdio servers, so
+`PLESK_PROJECT_ROOT` resolves to the project root. Approve the project server
+from `/mcp` the first time.
+
+Or register it from the command line:
+
+```bash
+claude mcp add --scope project --transport stdio plesk \
+  --env PLESK_MCP_ACCESS=client \
+  -- npx -y @rubcc95/plesk-mcp
+```
+
+If the local config is not found, pass an absolute path:
+
+```bash
+claude mcp add --scope project --transport stdio plesk \
+  --env PLESK_MCP_ACCESS=client \
+  --env PLESK_PROJECT_ROOT=/absolute/path/to/project \
+  -- npx -y @rubcc95/plesk-mcp
+```
+
+Check the connection:
+
+```bash
+claude mcp list
+claude mcp get plesk
+```
+
+Claude Code permission rules use `mcp__<server>__<tool>`. Minimal example for
+`.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plesk__execute_sql",
+      "mcp__plesk__list_databases",
+      "mcp__plesk__search_objects"
+    ],
+    "ask": [
+      "mcp__plesk__execute_sql_write"
+    ]
+  }
+}
+```
+
+Add the other write tools (`mcp__plesk__file_write`,
+`mcp__plesk__file_upload`, `mcp__plesk__file_delete`,
+`mcp__plesk__deps_install`, and so on) to `ask` as needed. The full list is in
+[docs/access-control.md](docs/access-control.md).
+
 ## Configuration
 
 The server reads two files with the same format:

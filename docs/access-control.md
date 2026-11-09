@@ -197,6 +197,50 @@ In the Plan agent, add:
 
 Do not enable both at the same time: you would see two confirmations.
 
+## Claude Code
+
+Claude Code can launch the server from a project `.mcp.json` file or with
+`claude mcp add`. Start it in `full`/`client` mode and let Claude Code apply its
+permission rules.
+
+```json
+{
+  "mcpServers": {
+    "plesk": {
+      "command": "npx",
+      "args": ["-y", "@rubcc95/plesk-mcp"],
+      "env": {
+        "PLESK_MCP_ACCESS": "client",
+        "PLESK_PROJECT_ROOT": "${CLAUDE_PROJECT_DIR:-.}"
+      }
+    }
+  }
+}
+```
+
+Claude Code names MCP tools as `mcp__<server>__<tool>`. Example permissions:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plesk__execute_sql",
+      "mcp__plesk__list_databases",
+      "mcp__plesk__search_objects"
+    ],
+    "ask": [
+      "mcp__plesk__execute_sql_write",
+      "mcp__plesk__file_write",
+      "mcp__plesk__file_upload",
+      "mcp__plesk__file_delete"
+    ]
+  }
+}
+```
+
+Use `claude mcp list` and `claude mcp get plesk` to check the connection, or
+open `/mcp` inside Claude Code to approve and inspect the server.
+
 ## Other clients
 
 - **With elicitation**: no configuration needed; the server asks for
