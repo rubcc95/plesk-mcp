@@ -6,8 +6,8 @@ export interface MysqlTsv {
 }
 
 /**
- * Parsea la salida de `mysql --batch --raw`: cabecera y filas separadas por
- * tabuladores, con `\t`, `\n`, `\r`, `\0` y `\\` escapados.
+ * Parses `mysql --batch --raw` output: header and rows separated by tabs,
+ * with `\t`, `\n`, `\r`, `\0` and `\\` escaped.
  */
 export function parseMysqlTsv(stdout: string): MysqlTsv {
   const text = stdout.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -65,7 +65,7 @@ function unescapeField(value: string): string {
         result += "\\";
         break;
       default:
-        // MySQL conserva el carácter tras la barra en escapes desconocidos.
+        // MySQL keeps the character after the backslash in unknown escapes.
         result += escaped;
         break;
     }
@@ -75,9 +75,9 @@ function unescapeField(value: string): string {
 }
 
 /**
- * Filtra valores con semántica SQL LIKE: `%` comodín de cualquier longitud,
- * `_` un carácter, `\` escapa el siguiente. Insensible a mayúsculas como
- * MySQL con la colación por defecto.
+ * Filters values with SQL LIKE semantics: `%` wildcard of any length,
+ * `_` a single character, `\` escapes the next one. Case-insensitive like
+ * MySQL with the default collation.
  */
 export function filterByLike(values: string[], pattern?: string): string[] {
   if (pattern === undefined || pattern === "") return [...values];
@@ -133,11 +133,11 @@ export function decodeCursor(cursor?: string): number {
       return (parsed as { o: number }).o;
     }
   } catch {
-    // Se traduce a error estable más abajo.
+    // Translated to a stable error below.
   }
 
-  throw new AppError("SQL_CURSOR_INVALID", "El cursor de paginación no es válido", {
-    hint: "Usa el `nextCursor` devuelto por la llamada anterior."
+  throw new AppError("SQL_CURSOR_INVALID", "The pagination cursor is not valid", {
+    hint: "Use the `nextCursor` returned by the previous call."
   });
 }
 

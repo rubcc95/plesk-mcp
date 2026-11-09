@@ -10,23 +10,23 @@ import { fromError, toCallToolResult } from "../util/result.js";
 export const ACCESS_ENV = "PLESK_MCP_ACCESS";
 
 /**
- * `confirm`: toda tool de escritura pide confirmación humana por elicitation.
- * `full`: no pide confirmación. Se usa en clientes que ya aplican su propio
- * diálogo de permisos (OpenCode con `ask`) o en tests.
+ * `confirm`: every write tool asks for human confirmation via elicitation.
+ * `full`: no confirmation. Used in clients that already apply their own
+ * permission dialog (OpenCode with `ask`) or in tests.
  */
 export type AccessMode = "confirm" | "full";
 export type ToolSafety = "read" | "write" | "dynamic";
 
 export interface ToolPolicy {
   safety: ToolSafety;
-  /** Solo aplica a tools de escritura o dinámicas. */
+  /** Only applies to write or dynamic tools. */
   destructive?: boolean;
   idempotent?: boolean;
-  /** Resumen legible y sin secretos que se muestra al confirmar. */
+  /** Human-readable, secret-free summary shown on confirmation. */
   summarize?: (args: Record<string, unknown>) => string;
   /**
-   * Autorización propia de una tool dinámica (por ejemplo, según el SQL).
-   * Se ejecuta antes del callback y su error se devuelve como resultado.
+   * Tool-specific authorization for a dynamic tool (for example, based on the SQL).
+   * It runs before the callback and its error is returned as the result.
    */
   authorize?: (
     args: Record<string, unknown>,
@@ -63,7 +63,7 @@ export function resolveAccessMode(raw = process.env[ACCESS_ENV]): AccessMode {
   }
 
   console.error(
-    `[plesk-mcp] PLESK_MCP_ACCESS inválido (${raw}); se usa confirm por seguridad`
+    `[plesk-mcp] invalid PLESK_MCP_ACCESS (${raw}); falling back to confirm for safety`
   );
   return "confirm";
 }
@@ -136,18 +136,18 @@ async function requestConfirmation(
   policy: ToolPolicy,
   args: Record<string, unknown>
 ): Promise<void> {
-  const detail = policy.summarize?.(args) ?? `${tool} va a modificar el servidor.`;
-  await elicitConfirmation(server, `Confirmar operación en producción:\n\n${detail}`, {
+  const detail = policy.summarize?.(args) ?? `${tool} will modify the server.`;
+  await elicitConfirmation(server, `Confirm operation in production:\n\n${detail}`, {
     tool,
-    unsupportedMessage: `El cliente no soporta elicitation y "${tool}" modifica el servidor`,
+    unsupportedMessage: `The client does not support elicitation and "${tool}" modifies the server`,
     hint:
-      "Usa un cliente con elicitation o arranca el MCP con PLESK_MCP_ACCESS=full si el cliente ya pide confirmación por su cuenta.",
-    rejectedMessage: `El usuario rechazó "${tool}"`,
-    rejectedHint: "No se ha modificado nada en el servidor."
+      "Use a client with elicitation or start the MCP with PLESK_MCP_ACCESS=full if the client already asks for confirmation on its own.",
+    rejectedMessage: `The user rejected "${tool}"`,
+    rejectedHint: "Nothing on the server has been modified."
   });
 }
 
-/** Formulario de confirmación reutilizable por tools estáticas y dinámicas. */
+/** Confirmation form reusable by static and dynamic tools. */
 export async function elicitConfirmation(
   server: McpServer,
   message: string,
@@ -164,7 +164,7 @@ export async function elicitConfirmation(
     throw new AppError(
       "CONFIRMATION_UNSUPPORTED",
       options.unsupportedMessage ??
-        `El cliente no soporta elicitation${options.tool ? ` y "${options.tool}"` : ""}`,
+        `The client does not support elicitation${options.tool ? ` and "${options.tool}"` : ""}`,
       { hint: options.hint }
     );
   }
@@ -177,8 +177,8 @@ export async function elicitConfirmation(
       properties: {
         confirm: {
           type: "boolean",
-          title: "Confirmar",
-          description: "Marca la casilla para ejecutar la operación.",
+          title: "Confirm",
+          description: "Check the box to run the operation.",
           default: false
         }
       },
@@ -195,7 +195,7 @@ export async function elicitConfirmation(
       throw new AppError(
         "CONFIRMATION_UNSUPPORTED",
         options.unsupportedMessage ??
-          `El cliente no soporta elicitation${options.tool ? ` y "${options.tool}"` : ""}`,
+          `The client does not support elicitation${options.tool ? ` and "${options.tool}"` : ""}`,
         { hint: options.hint }
       );
     }
@@ -206,8 +206,8 @@ export async function elicitConfirmation(
     throw new AppError(
       "CONFIRM_REJECTED",
       options.rejectedMessage ??
-        `El usuario rechazó la operación${options.tool ? ` "${options.tool}"` : ""}`,
-      { hint: options.rejectedHint ?? "No se ha modificado nada." }
+        `The user rejected the operation${options.tool ? ` "${options.tool}"` : ""}`,
+      { hint: options.rejectedHint ?? "Nothing has been modified." }
     );
   }
 }

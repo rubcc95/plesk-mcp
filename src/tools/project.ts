@@ -24,9 +24,9 @@ export function registerProjectTools(registrar: ToolRegistrar, ctx: ToolContext)
     "servers_list",
     readPolicy,
     {
-      title: "Listar servidores y bases locales",
+      title: "List servers and local databases",
       description:
-        "Lista los servidores Plesk y las bases de datos locales registrados en el config global y local, con su origen y cuál es el defecto. No incluye secretos.",
+        "Lists the Plesk servers and local databases registered in the global and local config, with their source and which one is the default. Does not include secrets.",
       inputSchema: {}
     },
     async () => toCallToolResult(ok(registrySummary(ctx.loaded)))
@@ -36,9 +36,9 @@ export function registerProjectTools(registrar: ToolRegistrar, ctx: ToolContext)
     "project_info",
     readPolicy,
     {
-      title: "Información de configuración",
+      title: "Configuration information",
       description:
-        "Devuelve las rutas de configuración, el servidor por defecto, el modo de acceso, los servidores Plesk y las bases locales. No incluye secretos.",
+        "Returns config paths, the default server, the access mode, Plesk servers and local databases. Does not include secrets.",
       inputSchema: {}
     },
     async () =>
@@ -54,17 +54,17 @@ export function registerProjectTools(registrar: ToolRegistrar, ctx: ToolContext)
     "doctor",
     readPolicy,
     {
-      title: "Comprobar acceso a Plesk",
+      title: "Check Plesk access",
       description:
-        "Comprueba autenticación, dominio, acceso a ficheros, exec y tar. Si se indica `server`, usa ese; si no, el servidor por defecto.",
+        "Checks authentication, domain, file access, exec and tar. If `server` is given, uses it; otherwise, the default server.",
       inputSchema: {
-        server: z.string().optional().describe("Nombre del servidor"),
+        server: z.string().optional().describe("Server name"),
         domain: z
           .string()
           .min(1)
           .optional()
           .describe(
-            "Dominio a comprobar; si se omite y el servidor tiene uno solo, se autodetecta"
+            "Domain to check; if omitted and the server has only one, it is auto-detected"
           )
       }
     },
@@ -86,7 +86,7 @@ export function registerProjectTools(registrar: ToolRegistrar, ctx: ToolContext)
   );
 }
 
-/** Cuando no hay configuración, el MCP arranca y explica el error. */
+/** When there is no config, the MCP starts and explains the error. */
 export function registerConfigErrorTools(
   registrar: ToolRegistrar,
   error: AppError
@@ -100,7 +100,7 @@ export function registerConfigErrorTools(
       readPolicy,
       {
         title: name,
-        description: "No hay configuración cargada. Devuelve el error de configuración.",
+        description: "No configuration is loaded. Returns the configuration error.",
         inputSchema: {}
       },
       async () => response()
@@ -119,11 +119,11 @@ async function runChecks(
       name: "config",
       ok: true,
       message: [
-        `servidor: ${runtime.name} (${runtime.source})`,
-        `dominio: ${domainName}`,
-        `por defecto: ${ctx.loaded.defaultServer ?? "(ninguno)"} (${ctx.loaded.defaultSource})`,
-        `global: ${ctx.loaded.globalConfigPath}${ctx.loaded.globalConfigFound ? "" : " (no existe)"}`,
-        `local: ${ctx.loaded.localConfigPath}${ctx.loaded.localConfigFound ? "" : " (no existe)"}`
+        `server: ${runtime.name} (${runtime.source})`,
+        `domain: ${domainName}`,
+        `default: ${ctx.loaded.defaultServer ?? "(none)"} (${ctx.loaded.defaultSource})`,
+        `global: ${ctx.loaded.globalConfigPath}${ctx.loaded.globalConfigFound ? "" : " (does not exist)"}`,
+        `local: ${ctx.loaded.localConfigPath}${ctx.loaded.localConfigFound ? "" : " (does not exist)"}`
       ].join(" | ")
     }
   ];
@@ -140,16 +140,16 @@ async function runChecks(
 
   await addCheck(checks, "files", async () => {
     await client.fsList("/");
-    return "fs/list funciona en /";
+    return "fs/list works on /";
   });
 
   await addCheck(checks, "db", async () => {
     if (!runtime.server.dbUser || !runtime.server.dbPass) {
-      throw new Error("El servidor no tiene dbUser/dbPass configurados");
+      throw new Error("The server has no dbUser/dbPass configured");
     }
     const target = resolveSqlTarget(ctx, { server: runtime.name });
     const list = await target.listDatabases({ includeSystem: true, limit: 1 });
-    return `MySQL responde; ${list.databases.length} base(s) visibles en la primera página`;
+    return `MySQL responds; ${list.databases.length} database(s) visible on the first page`;
   });
 
   let shell: ExecAccess | null = null;
@@ -157,26 +157,26 @@ async function runChecks(
     shell = await discoverShellDomain(client);
     if (!shell) {
       throw new Error(
-        "Ningún dominio tiene shell. Activa el acceso SSH (shell /bin/bash) en alguna suscripción."
+        "No domain has a shell. Enable SSH access (shell /bin/bash) on some subscription."
       );
     }
     const result = await shell.exec(["whoami"]);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.message || `code ${result.code}`);
     }
-    const user = (result.stdout ?? "").trim() || "whoami sin salida";
-    return `${user} (dominio ${shell.domain.name}${shell.foreign ? ", alternativo" : ""})`;
+    const user = (result.stdout ?? "").trim() || "whoami returned no output";
+    return `${user} (domain ${shell.domain.name}${shell.foreign ? ", alternate" : ""})`;
   });
 
   await addCheck(checks, "tar", async () => {
     if (!shell) {
-      throw new Error("No hay shell disponible para comprobar tar");
+      throw new Error("No shell available to check tar");
     }
     const result = await shell.exec(["tar", "--version"]);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.message || `code ${result.code}`);
     }
-    return (result.stdout ?? "").split(/\r?\n/)[0]?.trim() || "tar disponible";
+    return (result.stdout ?? "").split(/\r?\n/)[0]?.trim() || "tar available";
   });
 
   await addCheck(checks, "execPaths", async () => {
@@ -184,7 +184,7 @@ async function runChecks(
       baseRest: "/",
       need: "read"
     });
-    return `${access.domain.name}${access.foreign ? " (alternativo)" : ""} accede a ${access.home}`;
+    return `${access.domain.name}${access.foreign ? " (alternate)" : ""} accesses ${access.home}`;
   });
 
   return checks;

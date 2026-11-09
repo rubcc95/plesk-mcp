@@ -43,7 +43,7 @@ export interface ResolvedLocalEntry {
   type: "file" | "directory";
 }
 
-/** Resuelve una ruta local existente y comprueba que sigue dentro del proyecto. */
+/** Resolves an existing local path and checks that it is still inside the project. */
 export async function resolveLocalEntry(
   projectRoot: string,
   input: string
@@ -51,7 +51,7 @@ export async function resolveLocalEntry(
   const absolute = resolveLocalPath(projectRoot, input);
   const info = await stat(absolute).catch(() => null);
   if (!info) {
-    throw new AppError("LOCAL_NOT_FOUND", `No existe la ruta local: ${absolute}`);
+    throw new AppError("LOCAL_NOT_FOUND", `Local path does not exist: ${absolute}`);
   }
 
   const real = await realpath(absolute);
@@ -59,8 +59,8 @@ export async function resolveLocalEntry(
   if (real !== rootReal && !real.startsWith(`${rootReal}${path.sep}`)) {
     throw new AppError(
       "LOCAL_PATH_OUTSIDE_PROJECT",
-      `La ruta real ${real} queda fuera del proyecto`,
-      { hint: "Revisa enlaces simbólicos." }
+      `The real path ${real} is outside the project`,
+      { hint: "Check symbolic links." }
     );
   }
 
@@ -69,14 +69,14 @@ export async function resolveLocalEntry(
 
   throw new AppError(
     "LOCAL_NOT_SUPPORTED",
-    `La ruta local no es un fichero ni un directorio: ${real}`
+    `The local path is neither a file nor a directory: ${real}`
   );
 }
 
-/** Ancestro común de los directorios padre de las rutas locales. */
+/** Common ancestor of the parent directories of the local paths. */
 export function findLocalBase(paths: string[]): string {
   if (paths.length === 0) {
-    throw new AppError("UPLOAD_NO_PATHS", "No se indicó ninguna ruta local");
+    throw new AppError("UPLOAD_NO_PATHS", "No local path was provided");
   }
 
   const parents = paths.map((item) => path.dirname(item));
@@ -87,7 +87,7 @@ export function findLocalBase(paths: string[]): string {
   return base;
 }
 
-/** Recorre las rutas locales y devuelve ficheros y directorios. */
+/** Walks the local paths and returns files and directories. */
 export async function collectLocalTree(
   entries: ResolvedLocalEntry[],
   options: LocalWalkOptions
@@ -120,7 +120,7 @@ export async function collectLocalTree(
       if (matchesExclude(relative)) continue;
 
       if (child.isSymbolicLink()) {
-        warnings.push(`Se omitió el enlace simbólico ${relative}`);
+        warnings.push(`Skipped symbolic link ${relative}`);
         continue;
       }
 
@@ -133,14 +133,14 @@ export async function collectLocalTree(
       if (child.isFile()) {
         const info = await lstat(absolute).catch(() => null);
         if (!info) {
-          warnings.push(`No se pudo leer ${relative}`);
+          warnings.push(`Could not read ${relative}`);
           continue;
         }
         pushFile({ absolute, relative, size: info.size });
         continue;
       }
 
-      warnings.push(`Se omitió ${relative}: tipo no soportado`);
+      warnings.push(`Skipped ${relative}: unsupported type`);
     }
   };
 
@@ -161,7 +161,7 @@ export async function collectLocalTree(
   return { base, files, directories, totalBytes, warnings };
 }
 
-/** Calcula la ruta remota relativa de cada entrada local. */
+/** Computes the relative remote path for each local entry. */
 export function buildLocalPlan(tree: LocalTree): LocalPlan {
   return {
     base: tree.base,
@@ -214,7 +214,7 @@ function commonAncestor(a: string, b: string): string {
   if (path.parse(a).root !== path.parse(b).root) {
     throw new AppError(
       "UPLOAD_DIFFERENT_ROOTS",
-      "Las rutas locales están en unidades distintas"
+      "The local paths are on different drives"
     );
   }
 

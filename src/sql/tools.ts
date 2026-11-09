@@ -10,13 +10,13 @@ const serverField = z
   .string()
   .min(1)
   .optional()
-  .describe("Nombre de un servidor Plesk del array `servers`");
+  .describe("Name of a Plesk server from the `servers` array");
 
 const pcField = z
   .string()
   .min(1)
   .optional()
-  .describe("Nombre de una base de datos local del array `localDatabases`");
+  .describe("Name of a local database from the `localDatabases` array");
 
 const maxRowsField = z
   .number()
@@ -24,7 +24,7 @@ const maxRowsField = z
   .min(1)
   .max(10000)
   .optional()
-  .describe("Máximo de filas devueltas por consulta (por defecto 1000, máx. 10000)");
+  .describe("Maximum rows returned per query (default 1000, max 10000)");
 
 const timeoutField = z
   .number()
@@ -32,7 +32,7 @@ const timeoutField = z
   .min(1)
   .max(300000)
   .optional()
-  .describe("Timeout de ejecución en milisegundos (por defecto 30000, máx. 300000)");
+  .describe("Execution timeout in milliseconds (default 30000, max 300000)");
 
 const limitField = z
   .number()
@@ -40,22 +40,22 @@ const limitField = z
   .min(1)
   .max(500)
   .optional()
-  .describe("Máximo de bases de datos por página (por defecto 100, máx. 500)");
+  .describe("Maximum databases per page (default 100, max 500)");
 
 const cursorField = z
   .string()
   .optional()
-  .describe("Cursor de paginación devuelto en `nextCursor`");
+  .describe("Pagination cursor returned in `nextCursor`");
 
 const objectTypeField = z
   .enum(["schema", "table", "view", "column", "index", "procedure", "function"])
-  .describe("Tipo de objeto a buscar");
+  .describe("Type of object to search for");
 
 const detailLevelField = z
   .enum(["names", "summary", "full"])
   .optional()
   .describe(
-    "Nivel de detalle: names (solo nombre), summary (datos resumidos, por defecto) o full (fila completa)"
+    "Detail level: names (name only), summary (summarized data, default) or full (entire row)"
   );
 
 const readPolicy: ToolPolicy = { safety: "read" };
@@ -72,9 +72,9 @@ interface ExecuteSqlArgs {
 type ExpectedVerdict = "read" | "write";
 
 /**
- * Cada tool SQL solo acepta su tipo de sentencia. El split existe para que el
- * cliente pueda dar permisos distintos a lectura y escritura (por ejemplo,
- * Plan deniega `execute_sql_write` y Build la pregunta).
+ * Each SQL tool only accepts its own statement type. The split exists so the
+ * client can grant different permissions to read and write (for example,
+ * Plan denies `execute_sql_write` and Build asks the question).
  */
 function assertVerdict(classified: ClassifiedSql, expected: ExpectedVerdict): void {
   const matches =
@@ -85,12 +85,12 @@ function assertVerdict(classified: ClassifiedSql, expected: ExpectedVerdict): vo
   const other = expected === "read" ? "execute_sql_write" : "execute_sql";
   throw new AppError(
     "SQL_TOOL_MISMATCH",
-    `"${tool}" no admite una sentencia con veredicto "${classified.verdict}"`,
-    { hint: `Usa "${other}" para esta sentencia.` }
+    `"${tool}" does not accept a statement with verdict "${classified.verdict}"`,
+    { hint: `Use "${other}" for this statement.` }
   );
 }
 
-/** Cuerpo compartido por `execute_sql` y `execute_sql_write`. */
+/** Shared body for `execute_sql` and `execute_sql_write`. */
 function executeSql(ctx: ToolContext, args: ExecuteSqlArgs, expected: ExpectedVerdict) {
   return runTool(async () => {
     const classified = classifySql(args.sql);
@@ -122,14 +122,14 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
     "execute_sql",
     readPolicy,
     {
-      title: "Consultar SQL (solo lectura)",
+      title: "Query SQL (read-only)",
       description:
-        "Ejecuta SQL de solo lectura en un servidor Plesk (`server`) o en una base local (`pc`): SELECT, SHOW, DESCRIBE y EXPLAIN. Si la sentencia escribe, devuelve `SQL_TOOL_MISMATCH`; para esas usa `execute_sql_write`. Devuelve las filas y trunca a `max_rows`.",
+        "Runs read-only SQL on a Plesk server (`server`) or a local database (`pc`): SELECT, SHOW, DESCRIBE and EXPLAIN. If the statement writes, returns `SQL_TOOL_MISMATCH`; use `execute_sql_write` for those. Returns the rows and truncates to `max_rows`.",
       inputSchema: {
         server: serverField,
         pc: pcField,
-        database: z.string().min(1).describe("Base de datos sobre la que ejecutar"),
-        sql: z.string().min(1).describe("Sentencia SQL de lectura"),
+        database: z.string().min(1).describe("Database to run against"),
+        sql: z.string().min(1).describe("Read SQL statement"),
         max_rows: maxRowsField,
         timeout_ms: timeoutField
       }
@@ -144,22 +144,22 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
       destructive: true,
       summarize: (args) => {
         const target = args.server
-          ? `servidor "${String(args.server)}"`
+          ? `server "${String(args.server)}"`
           : `pc "${String(args.pc ?? "")}"`;
-        return `Escribir SQL en ${target}, base de datos ${String(
+        return `Write SQL on ${target}, database ${String(
           args.database ?? "?"
         )}`;
       }
     },
     {
-      title: "Ejecutar SQL (escritura)",
+      title: "Run SQL (write)",
       description:
-        "Ejecuta SQL que modifica datos o estructura en un servidor Plesk (`server`) o en una base local (`pc`): INSERT, UPDATE, DELETE, DDL y sentencias administrativas. Si la sentencia es de lectura, devuelve `SQL_TOOL_MISMATCH`; para consultar usa `execute_sql`.",
+        "Runs SQL that modifies data or structure on a Plesk server (`server`) or a local database (`pc`): INSERT, UPDATE, DELETE, DDL and administrative statements. If the statement is read-only, returns `SQL_TOOL_MISMATCH`; use `execute_sql` to query.",
       inputSchema: {
         server: serverField,
         pc: pcField,
-        database: z.string().min(1).describe("Base de datos sobre la que ejecutar"),
-        sql: z.string().min(1).describe("Sentencia SQL de escritura o DDL"),
+        database: z.string().min(1).describe("Database to run against"),
+        sql: z.string().min(1).describe("Write or DDL SQL statement"),
         timeout_ms: timeoutField
       }
     },
@@ -170,21 +170,21 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
     "list_databases",
     readPolicy,
     {
-      title: "Listar bases de datos",
+      title: "List databases",
       description:
-        "Lista las bases de datos de un servidor Plesk (`server`) o de una base local (`pc`). Es una operación de solo lectura, con filtro LIKE (`pattern`) y paginación por cursor.",
+        "Lists the databases on a Plesk server (`server`) or a local database (`pc`). This is a read-only operation, with a LIKE filter (`pattern`) and cursor-based pagination.",
       inputSchema: {
         server: serverField,
         pc: pcField,
         pattern: z
           .string()
           .optional()
-          .describe("Patrón SQL LIKE para filtrar nombres (por ejemplo `prefijo%`)"),
+          .describe("SQL LIKE pattern to filter names (for example `prefix%`)"),
         include_system: z
           .boolean()
           .optional()
           .describe(
-            "Incluye bases de datos del sistema (information_schema, mysql, performance_schema, sys)"
+            "Include system databases (information_schema, mysql, performance_schema, sys)"
           ),
         limit: limitField,
         cursor: cursorField
@@ -211,9 +211,9 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
     "search_objects",
     readPolicy,
     {
-      title: "Buscar objetos de base de datos",
+      title: "Search database objects",
       description:
-        "Busca esquemas, tablas, vistas, columnas, índices, procedimientos o funciones en un servidor Plesk (`server`) o en una base local (`pc`). Es una operación de solo lectura. `database` es obligatoria salvo para `object_type=schema`; `table` es obligatoria para columnas e índices.",
+        "Searches schemas, tables, views, columns, indexes, procedures or functions on a Plesk server (`server`) or a local database (`pc`). This is a read-only operation. `database` is required except for `object_type=schema`; `table` is required for columns and indexes.",
       inputSchema: {
         server: serverField,
         pc: pcField,
@@ -222,18 +222,18 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
           .min(1)
           .optional()
           .describe(
-            "Base de datos a inspeccionar (obligatoria salvo para object_type=schema)"
+            "Database to inspect (required except for object_type=schema)"
           ),
         object_type: objectTypeField,
         pattern: z
           .string()
           .optional()
-          .describe("Patrón SQL LIKE para el nombre del objeto (por defecto `%`)"),
+          .describe("SQL LIKE pattern for the object name (default `%`)"),
         table: z
           .string()
           .min(1)
           .optional()
-          .describe("Tabla para buscar columnas o índices"),
+          .describe("Table to search columns or indexes in"),
         detail_level: detailLevelField,
         limit: z
           .number()
@@ -241,7 +241,7 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
           .min(1)
           .max(1000)
           .optional()
-          .describe("Máximo de objetos devueltos (por defecto 100, máx. 1000)")
+          .describe("Maximum objects returned (default 100, max 1000)")
       }
     },
     async (args) =>
@@ -249,8 +249,8 @@ export function registerSqlTools(registrar: ToolRegistrar, ctx: ToolContext): vo
         if (args.object_type !== "schema" && !args.database) {
           throw new AppError(
             "SQL_DATABASE_REQUIRED",
-            "`database` es obligatoria para este tipo de objeto",
-            { hint: "Solo `object_type=schema` puede omitir `database`." }
+            "`database` is required for this object type",
+            { hint: "Only `object_type=schema` can omit `database`." }
           );
         }
 

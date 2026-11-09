@@ -52,7 +52,7 @@ export function walkPlanSummary(plan: WalkPlan): {
   };
 }
 
-/** Calcula qué ficheros se descargarían sin escribir nada en local. */
+/** Computes which files would be downloaded without writing anything locally. */
 export async function planWalk(
   options: WalkDownloadOptions
 ): Promise<WalkPlan> {
@@ -64,7 +64,7 @@ export async function planWalk(
   return buildWalkPlan(tree);
 }
 
-/** Descarga en paralelo fichero a fichero usando la API REST. */
+/** Downloads file by file in parallel using the REST API. */
 export async function downloadWalk(
   options: WalkDownloadOptions
 ): Promise<WalkDownloadResult> {
@@ -120,7 +120,7 @@ function localTarget(localDir: string, relative: string): string {
   if (target !== localDir && !target.startsWith(`${localDir}${path.sep}`)) {
     throw new AppError(
       "LOCAL_PATH_OUTSIDE_PROJECT",
-      `La ruta local calculada queda fuera del destino: ${target}`
+      `The computed local path falls outside the destination: ${target}`
     );
   }
   return target;

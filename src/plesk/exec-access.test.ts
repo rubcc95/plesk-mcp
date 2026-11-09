@@ -51,7 +51,7 @@ const noShell = () =>
   new PleskHttpError(403, "SSH access is forbidden with /bin/false shell");
 
 describe("resolveExecAccess", () => {
-  it("usa el dominio destino si tiene shell y acceso", async () => {
+  it("uses the target domain if it has a shell and access", async () => {
     const target = domain(1, "example.com", "/var/www/vhosts/example.com/httpdocs");
     const { client } = fakeClient([target], (_id, command) =>
       command[0] === "whoami" ? ok("example_user") : ok("")
@@ -66,7 +66,7 @@ describe("resolveExecAccess", () => {
     expect(access.home).toBe("/var/www/vhosts/example.com");
   });
 
-  it("usa otro dominio si el configurado no tiene shell", async () => {
+  it("uses another domain if the configured one has no shell", async () => {
     const target = domain(1, "example.com", "/var/www/vhosts/example.com/httpdocs");
     const other = domain(2, "other.com", "/var/www/vhosts/other.com/httpdocs");
     const { client } = fakeClient([target, other], (id, command) => {
@@ -82,7 +82,7 @@ describe("resolveExecAccess", () => {
     expect(access.foreign).toBe(true);
   });
 
-  it("prioriza dominios de la misma suscripción", async () => {
+  it("prioritizes domains from the same subscription", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const addon = domain(2, "addon.com", "/var/www/vhosts/main/addon/httpdocs");
     const other = domain(3, "aaa.com", "/var/www/vhosts/aaa.com/httpdocs");
@@ -102,7 +102,7 @@ describe("resolveExecAccess", () => {
     expect(probed).toContain(addon.id);
   });
 
-  it("respeta la necesidad de escritura", async () => {
+  it("respects the write requirement", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const readOnly = domain(2, "read.com", "/var/www/vhosts/read.com/httpdocs");
     const writable = domain(3, "write.com", "/var/www/vhosts/write.com/httpdocs");
@@ -123,7 +123,7 @@ describe("resolveExecAccess", () => {
     expect(access.domain.name).toBe("write.com");
   });
 
-  it("lanza EXEC_UNAVAILABLE si ningún dominio sirve", async () => {
+  it("throws EXEC_UNAVAILABLE if no domain works", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const { client } = fakeClient([target], () => {
       throw noShell();
@@ -134,7 +134,7 @@ describe("resolveExecAccess", () => {
     ).rejects.toMatchObject({ code: "EXEC_UNAVAILABLE" });
   });
 
-  it("aborta si la ejecución está deshabilitada globalmente", async () => {
+  it("aborts if command execution is disabled globally", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const { client } = fakeClient([target], () => {
       throw new PleskHttpError(403, "Domain command execution is disabled");
@@ -145,7 +145,7 @@ describe("resolveExecAccess", () => {
     ).rejects.toMatchObject({ code: "EXEC_UNAVAILABLE" });
   });
 
-  it("cachea el acceso resuelto", async () => {
+  it("caches the resolved access", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const { client, calls } = fakeClient([target], (_id, command) =>
       command[0] === "whoami" ? ok("user") : ok("")
@@ -160,7 +160,7 @@ describe("resolveExecAccess", () => {
 });
 
 describe("discoverShellDomain", () => {
-  it("devuelve el primer dominio con shell", async () => {
+  it("returns the first domain with a shell", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const other = domain(2, "other.com", "/var/www/vhosts/other.com/httpdocs");
     const { client } = fakeClient([target, other], (id, command) => {
@@ -173,7 +173,7 @@ describe("discoverShellDomain", () => {
     expect(access?.foreign).toBe(true);
   });
 
-  it("devuelve null si no hay ningún shell", async () => {
+  it("returns null if there is no shell", async () => {
     const target = domain(1, "main.com", "/var/www/vhosts/main/httpdocs");
     const { client } = fakeClient([target], () => {
       throw noShell();

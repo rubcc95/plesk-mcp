@@ -2,7 +2,7 @@ import path from "node:path";
 import { AppError, PleskHttpError } from "../util/errors.js";
 import type { PleskClient } from "./client.js";
 
-/** Comprueba si una ruta remota existe. */
+/** Checks whether a remote path exists. */
 export async function remoteExists(
   client: PleskClient,
   remote: string
@@ -16,7 +16,7 @@ export async function remoteExists(
   }
 }
 
-/** Crea un directorio remoto y todos sus padres, ignorando los que ya existen. */
+/** Creates a remote directory and all its parents, ignoring those that already exist. */
 export async function ensureRemoteDir(
   client: PleskClient,
   dir: string
@@ -32,7 +32,7 @@ export async function ensureRemoteDir(
   }
 }
 
-/** Borra una ruta remota si existe; cualquier otro error se propaga. */
+/** Deletes a remote path if it exists; any other error propagates. */
 export async function deleteRemoteIfExists(
   client: PleskClient,
   remote: string,
@@ -46,7 +46,7 @@ export async function deleteRemoteIfExists(
   }
 }
 
-/** Directorio de la ruta remota, normalizado en POSIX. */
+/** Directory of the remote path, normalized in POSIX. */
 export function remoteDirname(remote: string): string {
   return path.posix.dirname(remote);
 }
@@ -62,7 +62,7 @@ export function isNotFoundError(error: unknown): boolean {
 
 export function assertRemotePath(value: string): string {
   if (!value.startsWith("/")) {
-    throw new AppError("REMOTE_PATH_NOT_ABSOLUTE", `La ruta debe ser absoluta: ${value}`);
+    throw new AppError("REMOTE_PATH_NOT_ABSOLUTE", `The path must be absolute: ${value}`);
   }
   return value;
 }

@@ -4,7 +4,7 @@ import { mapPool } from "./pool.js";
 import { isRetryable, withRetry } from "./retry.js";
 
 describe("mapPool", () => {
-  it("conserva el orden y limita la concurrencia", async () => {
+  it("preserves order and limits concurrency", async () => {
     let active = 0;
     let maxActive = 0;
 
@@ -22,13 +22,13 @@ describe("mapPool", () => {
 });
 
 describe("withRetry", () => {
-  it("reintenta errores transitorios hasta completar", async () => {
+  it("retries transient errors until completion", async () => {
     let attempts = 0;
     const result = await withRetry(
       async () => {
         attempts += 1;
         if (attempts < 3) {
-          throw new AppError("PLESK_UNREACHABLE", "sin conexión");
+          throw new AppError("PLESK_UNREACHABLE", "no connection");
         }
         return "ok";
       },
@@ -39,21 +39,21 @@ describe("withRetry", () => {
     expect(attempts).toBe(3);
   });
 
-  it("no reintenta errores permanentes", async () => {
+  it("does not retry permanent errors", async () => {
     let attempts = 0;
     await expect(
       withRetry(
         async () => {
           attempts += 1;
-          throw new PleskHttpError(404, "no existe");
+          throw new PleskHttpError(404, "does not exist");
         },
         { baseDelayMs: 1 }
       )
-    ).rejects.toThrow(/no existe/);
+    ).rejects.toThrow(/does not exist/);
     expect(attempts).toBe(1);
   });
 
-  it("no reintenta DNS ni TLS", () => {
+  it("does not retry DNS or TLS", () => {
     expect(
       isRetryable(
         new AppError("PLESK_UNREACHABLE", "x", {
@@ -63,7 +63,7 @@ describe("withRetry", () => {
     ).toBe(false);
   });
 
-  it("clasifica 5xx y red como reintentables", () => {
+  it("classifies 5xx and network errors as retryable", () => {
     expect(isRetryable(new PleskHttpError(503, "unavailable"))).toBe(true);
     expect(isRetryable(new PleskHttpError(429, "too many"))).toBe(true);
     expect(isRetryable(new PleskHttpError(403, "forbidden"))).toBe(false);

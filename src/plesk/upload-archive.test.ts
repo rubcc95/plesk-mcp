@@ -3,8 +3,8 @@ import type { PleskClient, PleskDomain } from "./client.js";
 import type { ExecAccess } from "./exec-access.js";
 import { prepareArchiveTarget } from "./upload-archive.js";
 
-describe("prepareArchiveTarget con shell ajeno", () => {
-  it("deja el archivo en el dominio destino aunque el shell sea de otro", async () => {
+describe("prepareArchiveTarget with a foreign shell", () => {
+  it("leaves the archive on the target domain even if the shell belongs to another", async () => {
     const target: PleskDomain = {
       id: 1,
       name: "main.com",

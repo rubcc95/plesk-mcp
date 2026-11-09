@@ -8,20 +8,20 @@ export function registerLogTools(registrar: ToolRegistrar, ctx: ToolContext): vo
     "logs",
     { safety: "read" },
     {
-      title: "Buscar en logs del dominio",
+      title: "Search domain logs",
       description:
-        "Busca un patrón en los logs del dominio (error, access o node) y devuelve las coincidencias.",
+        "Searches for a pattern in the domain logs (error, access or node) and returns the matches.",
       inputSchema: {
         server: z
           .string()
           .optional()
-          .describe("Nombre del servidor; si se omite, usa el defecto"),
+          .describe("Server name; if omitted, the default is used"),
         domain: z
           .string()
           .min(1)
           .optional()
           .describe(
-            "Dominio de la suscripción; si se omite y el servidor tiene uno solo, se autodetecta"
+            "Subscription domain; if omitted and the server has only one, it is auto-detected"
           ),
         type: z.enum(["error", "access", "node"]).optional(),
         pattern: z.string().optional(),

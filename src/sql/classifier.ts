@@ -28,107 +28,107 @@ interface Guard {
 }
 
 /**
- * Guardas léxicas que se aplican además del parser. Cubren construcciones que
- * el AST puede clasificar como lectura pero que escriben, o sentencias que el
- * parser de MySQL no entiende (FLUSH, KILL, REVOKE...).
+ * Lexical guards applied in addition to the parser. They cover constructs that
+ * the AST may classify as read but that write, or statements the MySQL
+ * parser does not understand (FLUSH, KILL, REVOKE...).
  */
 const GUARDS: Guard[] = [
   {
     pattern: /\bINTO\s+(?:OUTFILE|DUMPFILE)\b/i,
     verdict: "admin",
-    reason: "INTO OUTFILE/DUMPFILE escribe ficheros en el servidor"
+    reason: "INTO OUTFILE/DUMPFILE writes files on the server"
   },
   {
     pattern: /\bLOAD_FILE\s*\(/i,
     verdict: "admin",
-    reason: "LOAD_FILE() lee ficheros del servidor"
+    reason: "LOAD_FILE() reads files from the server"
   },
   {
     pattern: /\bFOR\s+UPDATE\b/i,
     verdict: "write",
-    reason: "FOR UPDATE bloquea filas"
+    reason: "FOR UPDATE locks rows"
   },
   {
     pattern: /\bLOCK\s+IN\s+SHARE\s+MODE\b/i,
     verdict: "write",
-    reason: "LOCK IN SHARE MODE bloquea filas"
+    reason: "LOCK IN SHARE MODE locks rows"
   },
   {
     pattern: /^\s*LOAD\s+DATA\b/i,
     verdict: "admin",
-    reason: "LOAD DATA importa datos"
+    reason: "LOAD DATA imports data"
   },
   {
     pattern: /^\s*CALL\b/i,
     verdict: "admin",
-    reason: "CALL ejecuta procedimientos"
+    reason: "CALL runs procedures"
   },
   {
     pattern: /^\s*SET\b/i,
     verdict: "admin",
-    reason: "SET modifica variables o sesión"
+    reason: "SET modifies variables or the session"
   },
   {
     pattern: /^\s*GRANT\b/i,
     verdict: "admin",
-    reason: "GRANT modifica permisos"
+    reason: "GRANT modifies permissions"
   },
   {
     pattern: /^\s*REVOKE\b/i,
     verdict: "admin",
-    reason: "REVOKE modifica permisos"
+    reason: "REVOKE modifies permissions"
   },
   {
     pattern: /^\s*LOCK\s+TABLES\b/i,
     verdict: "admin",
-    reason: "LOCK TABLES bloquea tablas"
+    reason: "LOCK TABLES locks tables"
   },
   {
     pattern: /^\s*UNLOCK\s+TABLES\b/i,
     verdict: "admin",
-    reason: "UNLOCK TABLES libera bloqueos"
+    reason: "UNLOCK TABLES releases locks"
   },
   {
     pattern: /^\s*FLUSH\b/i,
     verdict: "admin",
-    reason: "FLUSH modifica el estado del servidor"
+    reason: "FLUSH modifies the server state"
   },
   {
     pattern: /^\s*KILL\b/i,
     verdict: "admin",
-    reason: "KILL termina conexiones o consultas"
+    reason: "KILL terminates connections or queries"
   },
   {
     pattern: /^\s*USE\b/i,
     verdict: "admin",
-    reason: "USE cambia la base de datos de la sesión"
+    reason: "USE changes the session database"
   },
   {
     pattern: /^\s*(?:BEGIN|COMMIT|ROLLBACK|START\s+TRANSACTION)\b/i,
     verdict: "admin",
-    reason: "Sentencia de transacción"
+    reason: "Transaction statement"
   },
   {
     pattern: /^\s*(?:OPTIMIZE|ANALYZE|REPAIR|CHECK)\b/i,
     verdict: "admin",
-    reason: "Mantenimiento de tablas"
+    reason: "Table maintenance"
   },
   {
     pattern: /^\s*EXPLAIN\s+ANALYZE\b/i,
     verdict: "write",
-    reason: "EXPLAIN ANALYZE ejecuta la consulta"
+    reason: "EXPLAIN ANALYZE runs the query"
   }
 ];
 
 /**
- * Clasifica un script SQL completo. Cualquier sentencia no reconocida se
- * considera `unknown` (fail-closed: la política de escritura se aplica).
+ * Classifies a complete SQL script. Any unrecognized statement is treated as
+ * `unknown` (fail-closed: the write policy applies).
  */
 export function classifySql(sql: string): ClassifiedSql {
   const statements = splitStatements(sql);
   if (statements.length === 0) {
-    throw new AppError("SQL_EMPTY", "El SQL está vacío", {
-      hint: "Indica al menos una sentencia SQL."
+    throw new AppError("SQL_EMPTY", "The SQL is empty", {
+      hint: "Provide at least one SQL statement."
     });
   }
 
@@ -145,13 +145,13 @@ export function classifySql(sql: string): ClassifiedSql {
   } catch (error) {
     parsed = null;
     reasons.push(
-      `No se pudo interpretar el SQL: ${error instanceof Error ? error.message : String(error)}`
+      `Could not parse the SQL: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 
   if (parsed === null) {
-    // Si el parser falla, las guardas léxicas pueden rescatar la sentencia
-    // (FLUSH, KILL, REVOKE...). Sin guardas, se trata como desconocida.
+    // If the parser fails, the lexical guards can still rescue the statement
+    // (FLUSH, KILL, REVOKE...). Without guards, it is treated as unknown.
     verdict = guardResult.verdict ?? "unknown";
   } else {
     for (const node of parsed) {
@@ -201,18 +201,18 @@ function classifyNode(node: unknown): { verdict: SqlVerdict; reason: string } {
     case "desc":
     case "describe":
     case "explain":
-      return { verdict: "read", reason: `Sentencia de lectura (${type})` };
+      return { verdict: "read", reason: `Read statement (${type})` };
     case "insert":
     case "update":
     case "delete":
     case "replace":
-      return { verdict: "write", reason: `Sentencia de escritura (${type})` };
+      return { verdict: "write", reason: `Write statement (${type})` };
     case "create":
     case "alter":
     case "drop":
     case "truncate":
     case "rename":
-      return { verdict: "ddl", reason: `Sentencia DDL (${type})` };
+      return { verdict: "ddl", reason: `DDL statement (${type})` };
     case "grant":
     case "revoke":
     case "set":
@@ -228,13 +228,13 @@ function classifyNode(node: unknown): { verdict: SqlVerdict; reason: string } {
     case "analyze":
     case "repair":
     case "check":
-      return { verdict: "admin", reason: `Sentencia administrativa (${type})` };
+      return { verdict: "admin", reason: `Administrative statement (${type})` };
     default:
       return {
         verdict: "unknown",
         reason: type
-          ? `Sentencia no reconocida (${type})`
-          : "Sentencia no reconocida"
+          ? `Unrecognized statement (${type})`
+          : "Unrecognized statement"
       };
   }
 }
@@ -248,9 +248,8 @@ function unique(values: string[]): string[] {
 }
 
 /**
- * Divide un script en sentencias sin romper cadenas, identificadores ni
- * comentarios. Se usa para contar sentencias y aplicar guardas de forma
- * individual.
+ * Splits a script into statements without breaking strings, identifiers or
+ * comments. Used to count statements and apply guards individually.
  */
 export function splitStatements(sql: string): string[] {
   const statements: string[] = [];
@@ -279,7 +278,7 @@ export function splitStatements(sql: string): string[] {
         index += 1;
 
         if (inner === quote) {
-          // Comilla doblada dentro de la cadena/identificador ('' o "" o ``).
+          // Doubled quote inside the string/identifier ('' or "" or ``).
           if (sql[index] === quote) {
             current += sql[index];
             index += 1;

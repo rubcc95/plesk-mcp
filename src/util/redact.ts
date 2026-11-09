@@ -1,7 +1,7 @@
 const SECRET_KEY =
   /(^|[_-])(api[_-]?key|password|passwd|secret|token|authorization|passphrase)($|[_-])/i;
 
-/** Redacta valores sensibles en objetos de configuracion o respuestas. */
+/** Redacts sensitive values in config objects or responses. */
 export function redact(value: unknown): unknown {
   if (typeof value === "string") return redactText(value);
   if (Array.isArray(value)) return value.map(redact);
@@ -15,7 +15,7 @@ export function redact(value: unknown): unknown {
   return value;
 }
 
-/** Redacta secretos que aparezcan dentro de un texto libre. */
+/** Redacts secrets that appear inside free-form text. */
 export function redactText(text: string): string {
   return text
     .replace(/(X-API-Key\s*:\s*)\S+/gi, "$1***")

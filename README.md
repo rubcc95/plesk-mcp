@@ -1,326 +1,548 @@
 # plesk-mcp
 
-MCP local para acceder a uno o varios servidores Plesk:
+Local MCP server for managing one or more Plesk servers:
 
-- Subir y gestionar ficheros.
-- Configurar aplicaciones Node.js.
-- Instalar dependencias.
-- Consultar logs.
-- Ejecutar SQL en las bases de datos de los servidores Plesk y en las bases
-  locales de la red (`ballena`, `elefante`).
+- Upload, download, and manage files.
+- Configure Node.js applications.
+- Install dependencies.
+- Read domain logs.
+- Run SQL against Plesk databases and local MySQL databases.
 
-Sustituye al MCP `mysql` (DBHub): todo el acceso a bases de datos se hace desde
-este servidor.
+It replaces the `mysql` MCP server (DBHub): all database access goes through
+this server.
 
-## Requisitos
+## Requirements
 
-- Node.js 22 o superior.
-- Plesk Linux 18.0.82 o superior.
-- API key de Plesk o usuario/contraseña con acceso a la API REST.
-- Para SQL en Plesk: algún dominio con shell y el cliente `mysql` o `mariadb`
-  instalado en el servidor. Las credenciales MySQL (`dbUser`/`dbPass`) se
-  configuran por servidor.
+- Node.js 22 or newer.
+- Plesk Obsidian 18.0.81 or newer on Linux (validated on 18.0.81).
+- A Plesk API key, or a username/password with REST API access.
+- For SQL on Plesk: at least one domain with shell access and the `mysql` or
+  `mariadb` client installed. MySQL credentials (`dbUser`/`dbPass`) are
+  configured per Plesk server.
+- For archive-based transfers: command execution enabled in the Plesk REST
+  extension and `tar` available. If command execution is unavailable, the
+  server falls back to REST-only transfers.
 
-## Instalación
+## Installation
+
+Install the package globally:
+
+```bash
+npm install -g @rubcc95/plesk-mcp
+```
+
+Or run it directly with `npx`:
+
+```bash
+npx -y @rubcc95/plesk-mcp
+```
+
+Install from a clone:
 
 ```bash
 npm install
 npm run build
+npm test
+npm link
 ```
 
-## Configuración
+The package exposes a single binary, `plesk-mcp`:
 
-El MCP se define una sola vez en `opencode.jsonc`:
+- Without arguments it starts the MCP server over stdio.
+- With a subcommand (`init`, `doctor`, `servers`, `project-info`) it runs the
+  configuration CLI.
+- `--help` and `--version` show CLI help and the package version.
+
+## MCP client setup
+
+Add the server once to your MCP client. Example for OpenCode:
 
 ```jsonc
-"plesk": {
-  "type": "local",
-  "command": ["node", "C:\\Users\\Usuario\\projects\\plesk-mcp\\dist\\index.js"],
-  "cwd": "."
+{
+  "mcp": {
+    "servers": {
+      "plesk": {
+        "type": "local",
+        "command": ["npx", "-y", "@rubcc95/plesk-mcp"],
+        "environment": {
+          "PLESK_MCP_ACCESS": "client"
+        }
+      }
+    }
+  }
 }
 ```
 
-Sin `environment`. El MCP lee dos archivos con el mismo formato:
+`PLESK_MCP_ACCESS=client` means the server does not show its own confirmation
+forms; your client's permission dialog is responsible for write operations. If
+you omit `environment`, the server runs in `confirm` mode and asks for
+confirmation through MCP elicitation. See [Access control](#access-control).
 
-- Global: `C:\Users\Usuario\.config\plesk-mcp\config.json`
-- Local: `<proyecto>\.plesk\config.json`
+The local configuration file is resolved from the MCP process working
+directory. If your client supports `cwd`, point it at the project that contains
+`.plesk/config.json`. If it does not, set `PLESK_PROJECT_ROOT` to that project:
 
-Ambos son iguales:
+```jsonc
+"environment": {
+  "PLESK_PROJECT_ROOT": "C:\\Users\\you\\projects\\my-project"
+}
+```
+
+Otherwise, use the global config file, which is always found.
+
+## Configuration
+
+The server reads two files with the same format:
+
+- Global: `~/.config/plesk-mcp/config.json`
+- Local: `<project>/.plesk/config.json`
+
+Set `PLESK_GLOBAL_CONFIG` to use a different global file.
+
+Example:
 
 ```json
 {
-  "defaultServer": "prod-mundopc",
+  "defaultServer": "prod-example",
   "servers": [
     {
-      "name": "prod-mundopc",
-      "url": "https://plesk.mundopc.com:8443",
+      "name": "prod-example",
+      "url": "https://plesk.example.com:8443",
       "auth": {
         "mode": "apiKey",
-        "apiKey": "env:PLESK_MUNDOPC_KEY"
+        "apiKey": "env:PLESK_API_KEY"
       },
+      "verifyTls": true,
+      "timeoutMs": null,
       "dbUser": "db_admin",
-      "dbPass": "env:PLESK_MUNDOPC_DB_PASS"
+      "dbPass": "env:PLESK_DB_PASSWORD"
     },
     {
-      "name": "cliente-x",
-      "url": "https://plesk.cliente-x.com:8443",
+      "name": "client-a",
+      "url": "https://plesk.client-a.example:8443",
       "auth": {
         "mode": "basic",
         "username": "admin",
-        "password": "env:PLESK_CLIENTE_PASSWORD"
+        "password": "env:PLESK_CLIENT_A_PASSWORD"
       },
       "dbUser": "db_admin",
-      "dbPass": "env:PLESK_CLIENTE_DB_PASS"
+      "dbPass": "env:PLESK_CLIENT_A_DB_PASSWORD"
     }
   ],
   "localDatabases": [
     {
-      "name": "ballena",
+      "name": "local-mysql-1",
       "host": "192.168.1.50",
       "port": 3306,
       "user": "root",
-      "password": "env:MYSQL_BALLENA_PASSWORD"
-    },
-    {
-      "name": "elefante",
-      "host": "192.168.1.51",
-      "port": 3306,
-      "user": "root",
-      "password": "env:MYSQL_ELEFANTE_PASSWORD"
+      "password": "env:MYSQL_LOCAL_1_PASSWORD",
+      "ssl": false
     }
   ]
 }
 ```
 
-Reglas:
+### Rules
 
-- Se cargan los dos archivos y se unen por `name`.
-- Si el mismo nombre está en los dos, gana el local.
-- `defaultServer` es opcional.
-- Si no hay `defaultServer`, el primero de la unión (global y luego local) es el defecto.
-- Una entrada de `servers` es un servidor Plesk, no un dominio. El `domain` se
-  pasa en las tools que lo necesitan; si el servidor tiene uno solo, se
-  autodetecta.
-- `dbUser`/`dbPass` son las credenciales MySQL del servidor Plesk. Se usan para
-  todas sus bases de datos.
-- `localDatabases` contiene las conexiones MySQL directas de la red local.
-- Los valores `env:VAR` se leen del entorno heredado.
+- Both files are loaded and merged by `name`.
+- If the same name exists in both files, the local entry wins.
+- The local `defaultServer` wins over the global one.
+- If no `defaultServer` is set, the first merged server is the default.
+- A `servers` entry is a Plesk server, not a domain. Pass `domain` to tools that
+  need it; if the server has only one domain, it is detected automatically.
+- `dbUser`/`dbPass` are MySQL credentials for that Plesk server and are used for
+  all of its databases. They must be provided together.
+- `localDatabases` contains direct MySQL connections reachable from your
+  machine (`name` is passed as `pc` in SQL tools).
+- The same name cannot exist in both `servers` and `localDatabases`
+  (`DUPLICATE_TARGET_NAME`).
+- Any string value can be `env:VARIABLE`. References are resolved lazily when
+  the target is used, so a missing variable only breaks that target.
+- If neither file exists or both are empty, the MCP server still starts and
+  exposes three configuration-error tools instead of failing to boot.
 
-Crear los archivos:
+A flat array is also accepted, but only for Plesk servers:
 
-```bash
-npx plesk-project init            # local
-npx plesk-project init --global   # global
+```json
+[
+  {
+    "name": "prod-example",
+    "url": "https://plesk.example.com:8443",
+    "auth": { "mode": "apiKey", "apiKey": "env:PLESK_API_KEY" },
+    "dbUser": "db_admin",
+    "dbPass": "env:PLESK_DB_PASSWORD"
+  }
+]
 ```
 
-## Permisos y confirmaciones
+In that format there is no `defaultServer` and no `localDatabases`; the first
+server is the default.
 
-El servidor es único y siempre expone todas las tools. Por defecto, cualquier
-tool que modifique el servidor pide confirmación humana mediante MCP
-elicitation:
+### Server fields
+
+- `name`: unique identifier used by the `server` input.
+- `url`: Plesk base URL, usually with `:8443`.
+- `auth.mode`: `apiKey` or `basic`.
+  - `apiKey`: requires `auth.apiKey`.
+  - `basic`: requires `auth.username` and `auth.password`.
+- `verifyTls`: verify the Plesk TLS certificate. Defaults to `true`.
+- `timeoutMs`: per-request timeout in milliseconds. `null` or omitted means no
+  timeout.
+- `dbUser` / `dbPass`: MySQL credentials with access to the server databases.
+
+### Local database fields
+
+- `name`: unique identifier used by the `pc` input.
+- `host`, `port`: MySQL endpoint. Port defaults to `3306`.
+- `user`, `password`: MySQL credentials.
+- `ssl`: use TLS for the MySQL connection. Defaults to `false`.
+
+### Create the files
 
 ```bash
-PLESK_MCP_ACCESS=confirm   # defecto: elicitation del servidor
-PLESK_MCP_ACCESS=client    # deja la confirmación al cliente (OpenCode: ask)
-PLESK_MCP_ACCESS=full      # sin confirmación; solo tests
+npx -y @rubcc95/plesk-mcp init            # local project config
+npx -y @rubcc95/plesk-mcp init --global   # global config
 ```
 
-- `confirm`: antes de escribir, el servidor muestra un formulario de
-  confirmación. Si el cliente no soporta elicitation, la tool falla con
-  `CONFIRMATION_UNSUPPORTED`.
-- `client`: el servidor no muestra formulario; el cliente aplica su propio
-  diálogo de permisos. Es el modo recomendado para OpenCode.
-- `full`: no pide confirmación (alias: `off`, `none`).
-- `dry_run` no pide confirmación porque no modifica nada.
-- Cada tool publica annotations (`readOnlyHint`, `destructiveHint`,
+If the package is installed globally, drop the `npx -y @rubcc95/plesk-mcp`
+prefix and use `plesk-mcp` directly.
+
+`init` creates an empty registry and adds `.plesk/config.json` to the project
+`.gitignore`.
+
+### CLI commands
+
+```bash
+npx -y @rubcc95/plesk-mcp init [--global] [--force]
+npx -y @rubcc95/plesk-mcp servers
+npx -y @rubcc95/plesk-mcp project-info
+npx -y @rubcc95/plesk-mcp doctor [--server <name>] [--domain <domain>]
+```
+
+The CLI `doctor` checks configuration, authentication, domain resolution,
+filesystem access, command execution, `tar`, and path access. It exits with a
+non-zero status if any check fails. The MCP `doctor` tool additionally validates
+SQL connectivity when `dbUser`/`dbPass` are configured.
+
+## Access control
+
+The server is a single process and always registers every tool. Write
+protection is applied at two levels: the MCP server and the client.
+
+### Server modes
+
+`PLESK_MCP_ACCESS` controls server-side confirmation:
+
+| Value | Behavior |
+| --- | --- |
+| `confirm` (default) | Write tools ask for confirmation through MCP elicitation. If the client does not support elicitation, the call fails with `CONFIRMATION_UNSUPPORTED`. |
+| `full` | No server-side confirmation. Intended for clients that apply their own permission dialog, or for tests. |
+| `client` | Alias for `full`, used to express that the client handles confirmation. |
+| `off`, `none` | Aliases for `full`. |
+| `write` | Alias for `confirm`. |
+
+Invalid values fall back to `confirm` and log a warning.
+
+Additional rules:
+
+- `dry_run: true` never asks for confirmation because it does not modify
+  anything.
+- `file_download` is classified as read-only on the server even though it writes
+  to your local disk. It does not ask for confirmation.
+- Every tool publishes standard annotations (`readOnlyHint`, `destructiveHint`,
   `idempotentHint`, `openWorldHint`).
+- `project_info` reports the active access mode.
 
-En OpenCode, Plan deniega las tools de escritura y Build las marca con
-`effect: "ask"`. Así aparece el diálogo nativo con **Allow once / Allow always /
-Deny**. Ejemplo completo: [docs/access-control.md](docs/access-control.md).
+### SQL tools
 
-El SQL está partido en dos tools para que el cliente pueda darles permisos
-distintos:
+SQL is split into two tools so the client can give them different permissions:
 
-- `execute_sql`: solo lectura (`SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`).
-- `execute_sql_write`: escrituras, DDL y administración.
+- `execute_sql`: read-only (`SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`).
+- `execute_sql_write`: writes, DDL, administration, and unclassified SQL.
 
-No hay políticas SQL propias ni variables de entorno. El servidor solo comprueba
-que cada tool recibe el tipo de sentencia correcto (`SQL_TOOL_MISMATCH` en caso
-contrario). El control real está en los permisos del cliente. En OpenCode:
+The server rejects a statement sent to the wrong tool with
+`SQL_TOOL_MISMATCH`. In `confirm` mode, `execute_sql_write` also goes through the
+generic write confirmation. In `full`/`client` mode it does not; the client's
+permission layer is the only gate.
 
-```jsonc
-{ "action": "plesk_execute_sql", "resource": "*", "effect": "allow" },
-{ "action": "plesk_execute_sql_write", "resource": "*", "effect": "ask" },
-```
-
-Y en Plan:
+### OpenCode example
 
 ```jsonc
-"agents": {
-  "plan": {
-    "permissions": [
-      { "action": "plesk_execute_sql_write", "resource": "*", "effect": "deny" }
-    ]
+{
+  "permissions": [
+    { "action": "plesk_execute_sql", "resource": "*", "effect": "allow" },
+    { "action": "plesk_execute_sql_write", "resource": "*", "effect": "ask" },
+    { "action": "plesk_file_write", "resource": "*", "effect": "ask" },
+    { "action": "plesk_file_delete", "resource": "*", "effect": "ask" }
+  ],
+  "agents": {
+    "plan": {
+      "permissions": [
+        { "action": "plesk_execute_sql_write", "resource": "*", "effect": "deny" },
+        { "action": "plesk_file_write", "resource": "*", "effect": "deny" }
+      ]
+    }
   }
 }
 ```
 
-## Uso
+The complete list of write tools and a full OpenCode configuration are in
+[docs/access-control.md](docs/access-control.md).
 
-Con un solo servidor, no hace falta pasar `server`:
+## Tools
 
-```json
-{ "path": "/httpdocs/index.php" }
-```
+All Plesk tools accept an optional `server`. If omitted, the default server is
+used. Tools that operate on a subscription accept an optional `domain`; if it is
+omitted and the server has only one domain, it is detected automatically. If
+there are several domains, the tool returns `PLESK_DOMAIN_REQUIRED`.
 
-Con varios, se puede omitir y se usa el defecto:
+### Project and diagnostics
 
-```json
-{ "path": "/httpdocs/index.php" }
-```
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `servers_list` | - | Lists Plesk servers, local databases, their source, and the default. |
+| `project_info` | - | Returns config paths, default server, access mode, servers, and local databases. No secrets. |
+| `doctor` | `server?`, `domain?` | Checks auth, domain, filesystem, SQL, command execution, `tar`, and path access. |
 
-O elegir uno:
+### Files
 
-```json
-{
-  "server": "cliente-x",
-  "path": "/httpdocs/index.php"
-}
-```
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `file_list` | `server?`, `domain?`, `path`, `recursive?`, `maxDepth?` | Lists a remote directory. `maxDepth` is 1-5 (default 2). |
+| `file_stat` | `server?`, `domain?`, `path` | Returns size, type, permissions, and modification time. |
+| `file_read` | `server?`, `domain?`, `path`, `encoding?`, `maxBytes?` | Reads a file as UTF-8 or base64. Default limit 1 MB, maximum 10 MB. |
+| `file_write` | `server?`, `domain?`, `path`, `content`, `encoding?`, `createDirs?`, `mode?` | Writes a file. Creates parent directories by default. |
+| `file_upload` | `server?`, `domain?`, `local_paths`, `remote`, `overwrite?`, `chunk_size_mb?`, `mode?`, `exclude?`, `keep_empty_dirs?`, `dry_run?` | Uploads files or directories. |
+| `file_download` | `server?`, `domain?`, `remote_paths`, `local`, `exclude?`, `overwrite?`, `keep_empty_dirs?`, `dry_run?` | Downloads files or directories. |
+| `file_mkdir` | `server?`, `domain?`, `path`, `recursive?` | Creates a directory. |
+| `file_move` | `server?`, `domain?`, `from`, `to`, `overwrite?` | Moves or renames a path. `overwrite` defaults to `false`. |
+| `file_copy` | `server?`, `domain?`, `from`, `to`, `overwrite?` | Copies a path. `overwrite` defaults to `false`. |
+| `file_delete` | `server?`, `domain?`, `path`, `recursive?` | Deletes a path. |
+| `file_chmod` | `server?`, `domain?`, `path`, `mode`, `recursive?` | Changes permissions. |
 
-Si el servidor tiene varios dominios, hay que indicar `domain` en las tools de
-ficheros, Node, logs o `deps_install`:
+Remote paths are absolute and virtual to the subscription root
+(`/httpdocs/...`, `/private/...`). The client translates them to the real
+subscription home because the Plesk API resolves relative paths against the
+document root.
 
-```json
-{
-  "server": "cliente-x",
-  "domain": "cliente-x.com",
-  "path": "/httpdocs/index.php"
-}
-```
+Local paths must stay inside the project root. Symlinks that escape the project
+are rejected, and local symlinks are skipped during recursive uploads.
 
-`servers_list` muestra los servidores, las bases locales, su origen y cuál es el
-defecto.
+### Node.js
 
-## Subida y descarga
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `node_list` | `server?` | Lists Node.js applications managed by Plesk. |
+| `node_info` | `server?`, `domain?` | Returns the application configuration. |
+| `node_configure` | `server?`, `domain?`, `appRoot?`, `startupFile?`, `nodeVersion?`, `appMode?`, `packageManager?`, `documentRoot?` | Auto-configures the application when no options are passed; otherwise updates the given settings. |
+| `node_update` | same as `node_configure` | Updates the given settings. |
+| `node_env_list` | `server?`, `domain?` | Lists environment variable names only. Never returns values. |
+| `node_env_set` | `server?`, `domain?`, `file` | Imports a local `.env` file. Variables are always stored as secrets in Plesk. The tool never returns names or values. |
+| `node_env_unset` | `server?`, `domain?`, `key` | Removes an environment variable. |
+| `node_install` | `server?`, `domain?` | Installs dependencies with the configured package manager. |
+| `node_run_script` | `server?`, `domain?`, `script` | Runs a `package.json` script. |
+| `node_restart` | `server?`, `domain?` | Restarts the application. |
+| `node_start` | `server?`, `domain?` | Starts the application. |
+| `node_stop` | `server?`, `domain?` | Stops the application. |
+| `node_status` | `server?`, `domain?` | Returns the application status. |
 
-`file_upload` y `file_download` aceptan una o varias rutas. El destino se
-interpreta por contexto:
+`node_env_set` writes entries sequentially. If Plesk rejects an entry, the
+operation stops and variables already written remain. Restart the application
+after changing environment variables.
 
-- Un único fichero: `remote` / `local` es la ruta exacta del fichero.
-- Un directorio o varias rutas: `remote` / `local` es el directorio destino.
+### Dependencies
 
-Cuando hay un único fichero se transfiere directamente por REST, por trozos.
-Cuando hay varios ficheros o algún directorio se usan dos motores:
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `deps_install` | `server?`, `domain?`, `command`, `cwd?` | Runs an allowlisted installer: `npm`, `pnpm`, `yarn`, `composer`, `bundle`, `pip`, or `pip3`. This is not a free-form shell. |
 
-- `archive`: empaqueta en el servidor un `.tar.gz`, lo transfiere y lo extrae.
-  Es el más rápido, pero necesita `exec` y `tar`.
-- `walk`: recorre el árbol con `fs/list` y transfiere fichero a fichero en
-  paralelo. Funciona en cualquier suscripción, incluso con `/bin/false`, pero
-  hace una petición por fichero.
+### Logs
 
-Siempre se intenta `archive` y, si el servidor no permite ejecutar comandos,
-se cae a `walk` automáticamente.
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `logs` | `server?`, `domain?`, `type?`, `pattern?`, `lines?` | Searches domain logs. `type` is `error`, `access`, or `node`. `lines` is limited to 2000. |
 
-Si el dominio seleccionado no tiene shell, el MCP busca en el listado de
-dominios otro con acceso SSH y lo usa para `tar`/`exec`:
+### SQL
 
-- Prioriza dominios de la misma suscripción (addon domains y subdominios), que
-  comparten usuario de sistema.
-- Comprueba con `test -e/-r/-w` que ese usuario puede acceder a la ruta destino.
-- En descargas, si el shell es de otro dominio, el `.tar.gz` se genera y se
-  descarga desde el home de ese dominio.
-- En subidas solo se usa un dominio ajeno si puede escribir en el destino; los
-  ficheros extraídos quedan con su propietario y se devuelve un warning.
-- Si ningún dominio sirve, se mantiene el fallback a `walk`.
+SQL tools require exactly one target: `server` for a Plesk server or `pc` for a
+local database. There is no default target for SQL.
 
-`doctor` incluye el check `execPaths`: si hay shell pero no puede acceder a la
-ruta del dominio (permisos entre suscripciones), lo indica y confirma que se
-usará `walk`.
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `execute_sql` | `server?` or `pc?`, `database`, `sql`, `max_rows?`, `timeout_ms?` | Runs read-only SQL. `max_rows` defaults to 1000 (max 10000); timeout defaults to 30 s (max 300 s). |
+| `execute_sql_write` | `server?` or `pc?`, `database`, `sql`, `timeout_ms?` | Runs writes, DDL, administration, and unclassified SQL. |
+| `list_databases` | `server?` or `pc?`, `pattern?`, `include_system?`, `limit?`, `cursor?` | Lists databases. Default limit 100 (max 500). Uses cursor pagination. |
+| `search_objects` | `server?` or `pc?`, `database?`, `object_type`, `pattern?`, `table?`, `detail_level?`, `limit?` | Searches `information_schema`. `object_type` is `schema`, `table`, `view`, `column`, `index`, `procedure`, or `function`. |
 
-El dominio de ejecución se elige con el input `domain` de la tool. Si no se
-indica y el servidor tiene un solo dominio, se autodetecta.
+`database` is required except for `object_type=schema`; `table` is required for
+columns and indexes. `detail_level` is `names`, `summary` (default), or `full`.
 
-```json
-{
-  "remote_paths": ["/httpdocs/assets", "/httpdocs/index.php"],
-  "local": "backup/httpdocs",
-  "exclude": ["node_modules", ".git", "*.log"]
-}
-```
+The SQL classifier assigns one of `read`, `write`, `ddl`, `admin`, or `unknown`:
 
-Reglas:
+- `SELECT`, `SHOW`, `DESCRIBE`, and `EXPLAIN` are reads.
+- `INSERT`, `UPDATE`, `DELETE`, and `REPLACE` are writes.
+- `CREATE`, `ALTER`, `DROP`, `TRUNCATE`, and `RENAME` are DDL.
+- `GRANT`, `REVOKE`, `SET`, `CALL`, `USE`, locks, transactions, `FLUSH`,
+  `KILL`, and table maintenance are administrative.
+- Unparseable or unrecognized SQL is `unknown` and therefore only accepted by
+  `execute_sql_write` (fail closed).
 
-- Las rutas se conservan relativas al ancestro común: `/httpdocs/assets`
-  genera `local/assets/...`. Para aplanar, enumera los ficheros en lugar del
-  directorio.
-- `overwrite: false` salta los ficheros que ya existen.
-- El `.tar.gz` es siempre temporal: se borra al terminar, igual que el
-  temporal remoto (`/.plesk-mcp-tmp`).
-- No hay límites de número de ficheros, profundidad, bytes ni timeout. La
-  transferencia continúa hasta completar o fallar.
-- Los errores transitorios (red, 5xx, 429) se reintentan indefinidamente. Los
-  permanentes (auth, DNS, TLS, 4xx de datos) se devuelven de inmediato.
-- La concurrencia del modo walk es fija (4).
-- `dry_run` muestra el plan (archivo o lista de ficheros) sin escribir nada.
+Multi-statement SQL is classified with the most restrictive verdict. On Plesk,
+multi-statement output is returned as raw text. On local databases, each
+statement result is returned separately.
 
-## Herramientas
+### Plesk SQL execution
 
-- `servers_list`, `project_info`, `doctor`
-- `file_list`, `file_stat`, `file_read`, `file_write`, `file_upload`, `file_download`, `file_mkdir`, `file_move`, `file_copy`, `file_delete`, `file_chmod`
-- `node_list`, `node_info`, `node_configure`, `node_update`, `node_env_list`, `node_env_set`, `node_env_unset`, `node_install`, `node_run_script`, `node_restart`, `node_start`, `node_stop`, `node_status`
-- `deps_install`
-- `logs`
-- `execute_sql`, `execute_sql_write`, `list_databases`, `search_objects`
+Plesk SQL does not use a direct TCP connection from your machine. The server
+finds a domain with shell and the `mysql`/`mariadb` client, then runs a bash
+script with a temporary `--defaults-extra-file` created under `umask 077` and
+removed by a `trap` on exit.
 
-Las tools de Plesk aceptan `server` opcional. Las SQL aceptan `server` o `pc`.
-Contrato detallado: [docs/mcp-contract.md](docs/mcp-contract.md).
+### Local SQL execution
 
-## Seguridad
+Local databases use `mysql2` over TCP with `multipleStatements: true` and
+`utf8mb4`. Connection pools are reused and evicted after 10 minutes of
+inactivity.
 
-- `.plesk/config.json` está en `.gitignore`.
-- El config global está fuera del repo.
-- OpenCode deniega la lectura del config local y global.
-- Toda tool de escritura pide confirmación humana: por MCP elicitation en
-  `confirm`, o por el diálogo nativo del cliente en `client`/`full` + `ask`.
-- `deps_install` solo acepta instaladores conocidos (`npm`, `pnpm`, `yarn`, `composer`, `bundle`, `pip`).
-- `file_upload` y `file_download` solo ejecutan `tar` con rutas y patrones validados.
-- Si el dominio no tiene shell, se puede usar el shell de otro dominio, pero
-  siempre como su usuario de sistema (nunca root) y comprobando antes el acceso
-  real a la ruta con `test -e/-r/-w`. Solo se ejecutan `whoami`, `test`, `tar` y
-  los instaladores permitidos por `deps_install`.
-- Los enlaces simbólicos locales se omiten siempre.
-- `node_env_set` no acepta claves ni valores: importa un `.env` local, los guarda
-  siempre como secretos en Plesk y nunca devuelve su contenido a la AI.
-- No hay shell libre.
-- Las credenciales MySQL de Plesk no se usan por TCP desde tu equipo: se ejecuta
-  el CLI `mysql` en un dominio con shell, con un fichero temporal `umask 077`
-  que se borra al terminar.
-- `execute_sql` solo ejecuta lecturas y `execute_sql_write` solo escrituras/DDL
-  (`SQL_TOOL_MISMATCH` si no coinciden). El gate humano lo pone el cliente:
-  `execute_sql_write` con `ask` en Build y `deny` en Plan.
-- El usuario MySQL de Plesk tiene acceso a todas las bases del servidor, así que
-  el clasificador y los permisos del cliente son el control de escritura.
+## File transfers
 
-## Estado
+`file_upload` and `file_download` accept one or more paths. The destination is
+interpreted by context:
 
-Validado en Plesk Obsidian 18.0.81 (Linux):
+- A single file: `remote` / `local` is the exact file path.
+- A directory or multiple paths: `remote` / `local` is the destination
+  directory.
 
-- La API `fs` resuelve las rutas relativas contra el document root y solo
-  acepta rutas absolutas dentro del webspace. El cliente traduce las rutas
-  virtuales del MCP (`/httpdocs/...`) al home real de la suscripción.
-- `fs/mkdir` usa `path` como query parameter (sin cuerpo).
-- `file_download` probado de extremo a extremo:
-  - modo `archive` con `exec`/`tar` (dominio con shell).
-  - modo `auto` en un dominio con `/bin/false`, cayendo a `walk` y
-    descargando en paralelo por REST.
-  - `overwrite=false` salta ficheros existentes en ambos modos.
-  - transferencia directa de un único fichero sin pasar por tar.
+### Direct transfer
 
-Pendiente de validar:
+A single file is transferred directly through REST in chunks. Uploads first
+write to a temporary remote file and then move it into place; failures clean up
+the temporary file. `chunk_size_mb` defaults to 4 MB and accepts up to 50 MB.
+`mode` applies only to this direct single-file upload.
 
-- Flags de `plesk ext nodejs` vía `/cli/extension/call`.
-- Límites de subida por trozos.
-- Validación de `execute_sql_write` en producción con permiso `ask` en Build y
-  `deny` en Plan.
+### Archive and walk modes
+
+For multiple files or directories, two engines are available:
+
+- `archive`: creates a `.tar.gz` on the server, transfers it, and extracts it.
+  It is the fastest option but requires `exec` and `tar`.
+- `walk`: walks the tree with `fs/list` and transfers files over REST in
+  parallel. It works on subscriptions without shell, including `/bin/false`,
+  but makes one request per file.
+
+The server always tries `archive` first and automatically falls back to `walk`
+when command execution is unavailable.
+
+### Shell discovery
+
+If the selected domain has no shell, the server looks for another domain with
+SSH access:
+
+- Domains in the same subscription (addon domains and subdomains) are preferred
+  because they share the system user.
+- It verifies access with `test -e/-r/-w` before using a foreign shell.
+- For downloads, if the shell belongs to another domain, the `.tar.gz` is
+  created and downloaded from that domain's home.
+- For uploads, a foreign shell is used only if it can write to the destination.
+  Extracted files keep that user's ownership and the response includes a
+  warning.
+- If no domain works, the transfer falls back to `walk`.
+
+`doctor` includes the `execPaths` check: if a shell exists but cannot access the
+domain path, it reports the problem and confirms that `walk` will be used.
+
+### Transfer rules
+
+- Paths are preserved relative to the common ancestor. `/httpdocs/assets`
+  produces `local/assets/...`. To flatten a tree, list individual files instead
+  of the directory.
+- `exclude` accepts glob patterns such as `node_modules`, `.git`, or `*.log`.
+- `overwrite: false` skips files that already exist.
+- There are no file count, depth, byte, or timeout limits. Transfers run until
+  they complete or fail. Upload chunks are capped at 50 MB.
+- Transient errors (network, timeouts, 5xx, 429) are retried indefinitely with
+  exponential backoff. Permanent errors (auth, DNS, TLS, invalid data) are
+  returned immediately.
+- Walk mode uses a fixed concurrency of 4.
+- `dry_run` returns the transfer plan without writing anything.
+- The local `.tar.gz` (`.plesk/tmp`) and remote temporary archive are always
+  deleted, even when the transfer fails.
+- Remote temp directories are tried in this order: `/.plesk-mcp-tmp`, then
+  `<base>/.plesk-mcp-tmp`.
+- Local extraction rejects unsafe archive entries and names that Windows cannot
+  create.
+- Remote symlinks are skipped by `walk` mode. `archive` mode may preserve them,
+  subject to the same safety checks on local extraction.
+- Local symlinks are always skipped.
+
+## Security
+
+- `.plesk/config.json` is in `.gitignore`. Keep the global config outside the
+  repository.
+- Prefer `env:` references for API keys and database passwords instead of
+  storing secrets in the JSON file.
+- Configure your MCP client to deny reading the local and global config files.
+- Write tools require human confirmation in `confirm` mode, or the client's
+  permission dialog in `full`/`client` mode.
+- `deps_install` accepts only known installers (`npm`, `pnpm`, `yarn`,
+  `composer`, `bundle`, `pip`, `pip3`).
+- `file_upload` and `file_download` execute `tar` only with validated paths and
+  exclusion patterns.
+- If the selected domain has no shell, another domain's shell can be used, but
+  always as that domain's system user (never root) and only after verifying real
+  access with `test -e/-r/-w`.
+- The only internal commands executed by the server are `whoami`, `test`,
+  `pwd`, `printenv`, `tar`, `mysql`/`mariadb`, the `plesk ext nodejs` CLI, and
+  the installers allowed by `deps_install`. There is no generic shell tool.
+- `node_run_script` can run any script defined in the application's
+  `package.json`. Package installers may also run lifecycle scripts. Treat both
+  as code execution on the server and restrict them with client permissions.
+- Local symlinks are always skipped.
+- `node_env_set` does not accept keys or values directly: it imports a local
+  `.env` file, stores every entry as a secret in Plesk, and never returns the
+  contents to the AI.
+- Plesk MySQL credentials are not used over TCP from your machine. The `mysql`
+  CLI runs on a domain with shell, with a temporary `umask 077` credentials file
+  that is deleted on exit.
+- `execute_sql` only runs reads and `execute_sql_write` only runs
+  writes/DDL/administration (`SQL_TOOL_MISMATCH` otherwise). The human gate is
+  provided by the client: `execute_sql_write` with `ask` in Build and `deny` in
+  Plan.
+- The Plesk MySQL user can access all databases on the server, so the SQL
+  classifier and the client permissions are the write control.
+- The server itself is a guardrail against AI mistakes, not a security boundary:
+  anyone who can start the process can set `PLESK_MCP_ACCESS=full`.
+
+## Validation status
+
+Validated on Plesk Obsidian 18.0.81 (Linux):
+
+- The `fs` API resolves relative paths against the document root and accepts
+  absolute paths inside the webspace. The client translates the MCP virtual
+  paths (`/httpdocs/...`) to the real subscription home.
+- `fs/mkdir` uses `path` as a query parameter with no request body.
+- `file_download` end to end:
+  - `archive` mode with `exec`/`tar` on a domain with shell.
+  - `auto` mode on a domain with `/bin/false`, falling back to `walk` and
+    downloading in parallel over REST.
+  - `overwrite=false` skips existing files in both modes.
+  - direct single-file transfer without `tar`.
+- Configuration loading and precedence, SQL classification, and the file
+  transfer engines are covered by unit tests.
+
+Pending validation against real servers:
+
+- `plesk ext nodejs` flags through `/cli/extension/call`.
+- Plesk upload chunk-size limits.
+- `execute_sql_write` in production with `ask` in Build and `deny` in Plan.
+
+## Documentation
+
+- [MCP contract](docs/mcp-contract.md)
+- [Access control](docs/access-control.md)
+- [Project configuration](docs/project-config.md)
+- [SQL manager](docs/sql-manager.md)
+
+## License
+
+MIT

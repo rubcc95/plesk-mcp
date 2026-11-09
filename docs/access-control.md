@@ -1,93 +1,101 @@
-# Control de acceso y confirmaciones
+# Access control and confirmations
 
-El servidor MCP es único y siempre registra todas las tools. La protección se
-aplica en dos niveles:
+The MCP server is a single server and always registers every tool. Protection is
+applied at two levels:
 
-1. **Servidor MCP**: toda operación de escritura pide confirmación humana.
-2. **Cliente**: cada cliente puede ocultar o denegar tools por agente. OpenCode
-   lo usa para que Plan no pueda escribir.
+1. **MCP server**: write operations ask for human confirmation when the server is
+   in `confirm` mode.
+2. **Client**: each client can hide or deny tools per agent. OpenCode uses this
+   so that Plan cannot write.
 
-## Modos del servidor
+## Server modes
 
-Se controlan con la variable de entorno `PLESK_MCP_ACCESS`:
+Modes are controlled by the `PLESK_MCP_ACCESS` environment variable:
 
-| Valor | Comportamiento |
+| Value | Behavior |
 | --- | --- |
-| `confirm` (defecto) | Las tools de escritura piden confirmación por MCP elicitation. Si el cliente no la soporta, la llamada falla con `CONFIRMATION_UNSUPPORTED`. |
-| `client` | No usa elicitation: deja la confirmación al sistema de permisos del cliente. Es el modo recomendado para OpenCode. |
-| `full` | No pide confirmación. Solo para tests o clientes que ya aplican su propia confirmación. |
+| `confirm` (default) | Write tools request confirmation through MCP elicitation. If the client does not support it, the call fails with `CONFIRMATION_UNSUPPORTED`. |
+| `full` | No elicitation: the server does not prompt and relies on the client's own permission layer. |
 
-Se aceptan los alias `write` para `confirm`, y `off` / `none` para `full`.
-`client` y `full` se comportan igual en el servidor; `client` expresa la
-intención de que el cliente muestre el diálogo de permisos.
+Aliases and fallbacks:
 
-El modo se muestra en `project_info` y en el arranque:
+- `write` is an alias of `confirm`.
+- `off` and `none` are aliases of `full`.
+- `client` is **not** a separate server mode. In `src/tools/policy.ts` it is an
+  alias of `full`: the server behaves exactly the same and does not prompt. The
+  name only expresses the intent that the client should show its own permission
+  dialog.
+- Any other invalid value falls back to `confirm` for safety and logs a warning.
+
+The effective mode is shown in `project_info` and at startup:
 
 ```text
 [plesk-mcp] access=confirm
 ```
 
-## Cómo se confirma una escritura
+## How a write is confirmed
 
-Antes de ejecutar una tool de escritura, el servidor envía un
-`elicitation/create` con un formulario de confirmación. La operación solo se
-ejecuta si el usuario responde `accept` y marca la casilla `confirm`.
+Before executing a write tool in `confirm` mode, the server sends an
+`elicitation/create` request with a confirmation form. The operation runs only if
+the user responds `accept` and checks the `confirm` box.
 
-- `dry_run: true` no pide confirmación, porque no modifica nada.
-- Si el usuario rechaza o cancela, la tool devuelve `CONFIRM_REJECTED` y no se
-  cambia nada.
-- Si el cliente no declara capacidad de elicitation, la tool devuelve
+- `dry_run: true` does not request confirmation, because nothing is modified.
+- If the user rejects or cancels, the tool returns `CONFIRM_REJECTED` and nothing
+  is changed.
+- If the client does not declare elicitation capability, the tool returns
   `CONFIRMATION_UNSUPPORTED`.
 
-Cada tool publica además `annotations` estándar (`readOnlyHint`,
-`destructiveHint`, `idempotentHint`, `openWorldHint`) para que los clientes
-puedan clasificarlas. Son informativas: la seguridad real la aplica el servidor.
+Each tool also publishes standard `annotations` (`readOnlyHint`,
+`destructiveHint`, `idempotentHint`, `openWorldHint`) so clients can classify
+them. They are informative: the server enforces the real behavior.
 
-## Clasificación
+## Classification
 
-Lectura (nunca piden confirmación):
+Read-only (never prompt):
 
 `servers_list`, `project_info`, `doctor`, `file_list`, `file_stat`,
 `file_read`, `file_download`, `logs`, `node_list`, `node_info`,
 `node_env_list`, `node_status`, `list_databases`, `search_objects`.
 
-Escritura (piden confirmación en modo `confirm`):
+Write (prompt in `confirm` mode):
 
 `file_write`, `file_upload`, `file_mkdir`, `file_move`, `file_copy`,
 `file_delete`, `file_chmod`, `node_configure`, `node_update`, `node_env_set`,
 `node_env_unset`, `node_install`, `node_run_script`, `node_restart`,
-`node_start`, `node_stop`, `deps_install`.
+`node_start`, `node_stop`, `deps_install`, `execute_sql_write`.
 
-`file_download` está clasificada como lectura porque no modifica el servidor,
-aunque escribe en el disco local.
+`file_download` is classified as read-only because it does not modify the
+server, even though it writes to the local disk.
 
-`execute_sql` y `execute_sql_write` son estáticas desde el punto de vista del
-cliente: la primera solo acepta lecturas y la segunda solo escrituras, DDL o
-administración (`SQL_TOOL_MISMATCH` si no coincide). Así cada una puede tener su
-propio permiso.
+`execute_sql` and `execute_sql_write` are static from the client's point of view:
+the first accepts only reads and the second accepts only writes, DDL, or
+administration (`SQL_TOOL_MISMATCH` otherwise). Because `execute_sql_write` has
+safety `write`, in `confirm` mode it **does** go through the generic elicitation
+flow. In `full`/`client`/`off`/`none` it does not prompt and relies on the
+client's permission layer.
 
-## Bases de datos
+## Databases
 
-No hay políticas SQL propias ni variables de entorno. El clasificador solo
-decide qué tool debe ejecutar la sentencia, y el gate humano lo pone el cliente:
+There are no SQL-specific policies or environment variables. The classifier only
+decides which tool may run the statement; the human gate is provided by the
+client:
 
-| Tool | Acepta | Permiso recomendado (OpenCode) |
+| Tool | Accepts | Recommended permission (OpenCode) |
 | --- | --- | --- |
-| `execute_sql` | `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN` | `allow` en Build y Plan |
-| `execute_sql_write` | `write`, `ddl`, `admin`, `unknown` | `ask` en Build, `deny` en Plan |
+| `execute_sql` | `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN` | `allow` in Build and Plan |
+| `execute_sql_write` | `write`, `ddl`, `admin`, `unknown` | `ask` in Build, `deny` in Plan |
 
-- Multi-statement se clasifica con el veredicto más restrictivo.
-- Un SQL que no se puede parsear cuenta como escritura (fail-closed): solo entra
-  por `execute_sql_write`.
-- El servidor no pregunta nada para SQL; con `PLESK_MCP_ACCESS=confirm` la tool
-  de escritura sigue el flujo genérico de confirmación, pero lo normal en
-  OpenCode es `PLESK_MCP_ACCESS=client` y dejar el diálogo a OpenCode.
+- Multi-statement SQL is classified with the most restrictive verdict.
+- SQL that cannot be parsed counts as a write (fail-closed): it can only go
+  through `execute_sql_write`.
+- In `confirm` mode, `execute_sql_write` follows the same generic confirmation
+  flow as any other write tool. In `full`/`client` there is no server prompt.
 
-## OpenCode con el diálogo nativo
+## OpenCode with the native dialog
 
-OpenCode tiene su propio diálogo de permisos con **Allow once**, **Allow
-always** y **Deny**. Para usarlo se arranca el MCP en modo `client` y se marcan
-las escrituras con `effect: "ask"`:
+OpenCode has its own permission dialog with **Allow once**, **Allow always**, and
+**Deny**. To use it, start the MCP in `full` mode (the `client` alias is
+equivalent) and mark writes with `effect: "ask"`:
 
 ```jsonc
 {
@@ -95,7 +103,7 @@ las escrituras con `effect: "ask"`:
     "servers": {
       "plesk": {
         "type": "local",
-        "command": ["node", "C:\\Users\\Usuario\\projects\\plesk-mcp\\dist\\index.js"],
+        "command": ["npx", "-y", "@rubcc95/plesk-mcp"],
         "cwd": ".",
         "environment": { "PLESK_MCP_ACCESS": "client" }
       }
@@ -146,19 +154,18 @@ las escrituras con `effect: "ask"`:
 }
 ```
 
-El servidor arranca con `PLESK_MCP_ACCESS=client`, así que no muestra su propio
-formulario para las tools Plesk. La confirmación la hace OpenCode con su diálogo
-nativo.
+The server starts with `PLESK_MCP_ACCESS=client`, so it does not show its own
+form. OpenCode performs the confirmation through its native dialog.
 
-Para SQL no hace falta configurar nada en el entorno: se usan dos tools con
-permisos distintos.
+SQL needs no environment configuration: it uses two tools with different
+permissions.
 
 ```jsonc
 { "action": "plesk_execute_sql",       "resource": "*", "effect": "allow" },
 { "action": "plesk_execute_sql_write", "resource": "*", "effect": "ask" },
 ```
 
-Y en el agente Plan se añade:
+In the Plan agent, add:
 
 ```jsonc
 "agents": {
@@ -170,39 +177,39 @@ Y en el agente Plan se añade:
 }
 ```
 
-`plesk_list_databases` y `plesk_search_objects` son de lectura y se dejan en
+`plesk_list_databases` and `plesk_search_objects` are read-only and can stay on
 `allow`.
 
-- **Plan**: OpenCode bloquea las tools antes de llamar al MCP.
-- **Build**: OpenCode muestra **Allow once / Allow always / Deny** para la tool.
-  Si eliges **Allow always**, OpenCode guarda una regla `allow` para esa tool y
-  deja de preguntar.
-- **General / Explore / subagentes**: heredan los `ask` globales. Si se quieren
-  read-only, hay que añadir sus propias reglas `deny`.
+- **Plan**: OpenCode blocks the tools before calling the MCP.
+- **Build**: OpenCode shows **Allow once / Allow always / Deny** for the tool. If
+  you choose **Allow always**, OpenCode stores an `allow` rule for that tool and
+  stops asking.
+- **General / Explore / subagents**: they inherit the global `ask` rules. If you
+  want them read-only, add their own `deny` rules.
 
-### ¿Elicitation o diálogo nativo?
+### Elicitation or native dialog?
 
-- **Diálogo nativo de OpenCode** (`client` + `ask`): permite **Allow always** y
-  no duplica prompts. Es el modo recomendado si OpenCode es el cliente
-  principal.
-- **Elicitation del servidor** (`confirm`): funciona en cualquier cliente MCP,
-  pero no tiene “Allow always” y muestra un formulario por operación.
+- **OpenCode's native dialog** (`full`/`client` + `ask`): supports **Allow
+  always** and does not duplicate prompts. This is the recommended setup when
+  OpenCode is the primary client.
+- **Server elicitation** (`confirm`): works with any MCP client, but has no
+  "Allow always" and shows one form per operation.
 
-No conviene activar ambos a la vez: se verían dos confirmaciones.
+Do not enable both at the same time: you would see two confirmations.
 
-## Otros clientes
+## Other clients
 
-- **Con elicitation**: no hace falta configurar nada; el servidor pide
-  confirmación en cada escritura.
-- **Con permisos propios**: se puede arrancar con `PLESK_MCP_ACCESS=full` y
-  dejar que el cliente aplique `ask` sobre las tools de escritura.
-- **Sin elicitation ni permisos**: las escrituras fallan de forma segura. Solo
-  se pueden usar las tools de lectura.
+- **With elicitation**: no configuration needed; the server asks for
+  confirmation on every write.
+- **With its own permissions**: start with `PLESK_MCP_ACCESS=full` and let the
+  client apply `ask` to write tools.
+- **Without elicitation or permissions**: writes fail safely. Only read-only
+  tools can be used.
 
-## Límites
+## Limits
 
-- `PLESK_MCP_ACCESS` es un guardrail contra errores de la IA, no una frontera
-  de seguridad: quien puede lanzar el proceso puede poner `full`.
-- Un agente con shell libre podría intentar arrancar otra instancia del MCP en
-  modo `full`. Para evitarlo, hay que restringir también el shell del agente o
-  ejecutarlo sin credenciales.
+- `PLESK_MCP_ACCESS` is a guardrail against AI mistakes, not a security
+  boundary: anyone who can launch the process can set it to `full`.
+- An agent with unrestricted shell access could try to start another instance of
+  the MCP in `full` mode. To prevent this, restrict the agent's shell as well or
+  run it without credentials.

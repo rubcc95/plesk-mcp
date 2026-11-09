@@ -34,7 +34,7 @@ export interface ArchivePlanOptions {
 }
 
 export interface ArchivePlan {
-  /** Raíz real de la suscripción destino (home del usuario de sistema). */
+  /** Real root of the target subscription (system user home). */
   home: string;
   prefix: string;
   tarBinary: string;
@@ -42,7 +42,7 @@ export interface ArchivePlan {
   restPath: string;
   realPath: string;
   command: string[];
-  /** Dominio cuyo shell se usa. */
+  /** Domain whose shell is used. */
   execDomain: { id: number; name: string };
   foreign: boolean;
 }
@@ -50,7 +50,7 @@ export interface ArchivePlan {
 export interface RemoteArchive extends ArchivePlan {
   warnings: string[];
   bytes: number;
-  /** Cliente contra el dominio que aloja el archivo (el mismo salvo shell ajeno). */
+  /** Client for the domain hosting the file (the same one unless a foreign shell is used). */
   stagingClient: PleskClient;
 }
 
@@ -61,12 +61,12 @@ export interface ArchiveEntryInfo {
 }
 
 /**
- * Ancestro común de los directorios padre de las rutas indicadas.
- * Ejemplo: ["/httpdocs/assets", "/httpdocs/index.php"] -> "/httpdocs".
+ * Common ancestor of the parent directories of the given paths.
+ * Example: ["/httpdocs/assets", "/httpdocs/index.php"] -> "/httpdocs".
  */
 export function findArchiveBase(remotePaths: string[]): string {
   if (remotePaths.length === 0) {
-    throw new AppError("ARCHIVE_NO_PATHS", "No se indicó ninguna ruta remota");
+    throw new AppError("ARCHIVE_NO_PATHS", "No remote path was provided");
   }
 
   let base = path.posix.dirname(remotePaths[0]!);
@@ -76,7 +76,7 @@ export function findArchiveBase(remotePaths: string[]): string {
   return base;
 }
 
-/** Rutas relativas a la base, sin entradas duplicadas por anidamiento. */
+/** Paths relative to the base, without entries duplicated by nesting. */
 export function archiveEntries(remotePaths: string[], base: string): string[] {
   const entries = unique(
     remotePaths.map((remotePath) => {
@@ -85,7 +85,7 @@ export function archiveEntries(remotePaths: string[], base: string): string[] {
       if (!relative) {
         throw new AppError(
           "ARCHIVE_INVALID_ENTRY",
-          `La ruta ${remotePath} no es relativa a la base ${base}`
+          `Path ${remotePath} is not relative to base ${base}`
         );
       }
       return relative;
@@ -102,26 +102,26 @@ export function validateExcludePatterns(patterns: string[]): string[] {
   return patterns.map((pattern) => {
     const value = pattern.trim();
     if (!value) {
-      throw new AppError("ARCHIVE_EXCLUDE_INVALID", "Un patrón de exclusión está vacío");
+      throw new AppError("ARCHIVE_EXCLUDE_INVALID", "An exclude pattern is empty");
     }
     if (value.startsWith("-") || !EXCLUDE_PATTERN.test(value)) {
       throw new AppError(
         "ARCHIVE_EXCLUDE_INVALID",
-        `Patrón de exclusión no válido: ${pattern}`,
-        { hint: "Solo se permiten letras, números y los caracteres . _ * ? [ ] / -" }
+        `Invalid exclude pattern: ${pattern}`,
+        { hint: "Only letters, numbers, and the characters . _ * ? [ ] / - are allowed" }
       );
     }
     if (value.length > 200) {
       throw new AppError(
         "ARCHIVE_EXCLUDE_INVALID",
-        `Patrón de exclusión demasiado largo: ${pattern}`
+        `Exclude pattern too long: ${pattern}`
       );
     }
     return value;
   });
 }
 
-/** Construye el comando tar con binario fijo y argumentos ya validados. */
+/** Builds the tar command with a fixed binary and already validated arguments. */
 export function buildTarArgs(options: {
   tarBinary: string;
   archiveRealPath: string;
@@ -142,9 +142,9 @@ export function buildTarArgs(options: {
 }
 
 /**
- * Traduce una ruta de la API fs de Plesk (relativa a la raíz de la suscripción)
- * a la ruta real que ve exec. Plesk ejecuta los comandos en el home del usuario
- * de la suscripción, así que el prefijo habitual es /var/www/vhosts/<dominio>.
+ * Translates a Plesk fs API path (relative to the subscription root)
+ * to the real path seen by exec. Plesk runs commands in the subscription
+ * user's home, so the usual prefix is /var/www/vhosts/<domain>.
  */
 export async function resolveExecPaths(
   client: PleskClient,
@@ -187,9 +187,9 @@ export async function resolveExecPaths(
 
   throw new AppError(
     "EXEC_PATH_MAPPING_FAILED",
-    `No se pudo traducir la ruta remota ${baseRest} a una ruta del servidor`,
+    `Could not translate remote path ${baseRest} to a server path`,
     {
-      hint: "Comprueba con doctor que exec funciona y que la ruta existe."
+      hint: "Use doctor to check that exec works and that the path exists."
     }
   );
 }
@@ -214,11 +214,11 @@ async function resolveExecHome(client: PleskClient): Promise<string> {
     ) {
       throw new AppError(
         "EXEC_UNAVAILABLE",
-        "El servidor no permite ejecutar comandos (exec)",
+        "The server does not allow running commands (exec)",
         {
           cause: error,
           hint:
-            "La descarga masiva necesita exec y tar. Las suscripciones con shell chrooted o sin shell no lo permiten; ejecuta doctor para comprobarlo."
+            "Bulk download needs exec and tar. Subscriptions with a chrooted shell or no shell do not allow it; run doctor to check."
         }
       );
     }
@@ -228,11 +228,11 @@ async function resolveExecHome(client: PleskClient): Promise<string> {
   if (result.code !== 0) {
     throw new AppError(
       "EXEC_UNAVAILABLE",
-      "El servidor no permite ejecutar comandos (exec)",
+      "The server does not allow running commands (exec)",
       {
         hint:
           redactText(result.stderr || result.message || "") ||
-          "Las suscripciones con shell chrooted o sin shell no permiten exec."
+          "Subscriptions with a chrooted shell or no shell do not allow exec."
       }
     );
   }
@@ -241,7 +241,7 @@ async function resolveExecHome(client: PleskClient): Promise<string> {
   if (!home.startsWith("/")) {
     throw new AppError(
       "EXEC_UNAVAILABLE",
-      `exec devolvió un directorio de trabajo inesperado: ${home || "(vacío)"}`
+      `exec returned an unexpected working directory: ${home || "(empty)"}`
     );
   }
   return home.replace(/\/+$/, "") || "/";
@@ -302,15 +302,15 @@ export async function resolveTarBinary(
 
   throw new AppError(
     "TAR_UNAVAILABLE",
-    "No se encontró el binario tar en el servidor",
-    { hint: "La descarga masiva necesita tar (GNU tar) disponible para la suscripción." }
+    "The tar binary was not found on the server",
+    { hint: "Bulk download needs tar (GNU tar) available to the subscription." }
   );
 }
 
 export async function planArchive(options: ArchivePlanOptions): Promise<ArchivePlan> {
   const { client, base, entries, excludes } = options;
   if (entries.length === 0) {
-    throw new AppError("ARCHIVE_NO_ENTRIES", "No hay ficheros ni directorios que empaquetar");
+    throw new AppError("ARCHIVE_NO_ENTRIES", "There are no files or directories to package");
   }
 
   const access =
@@ -378,23 +378,23 @@ export async function createRemoteArchive(
       if (result.code === 1 && exists) {
         const detail = redactText(result.stderr || result.message || "").trim();
         warnings.push(
-          `tar terminó con código 1; el archivo se creó igualmente${detail ? `: ${detail}` : ""}`
+          `tar exited with code 1; the archive was created anyway${detail ? `: ${detail}` : ""}`
         );
       } else {
         if (plan.foreign) {
           throw new AppError(
             "EXEC_UNAVAILABLE",
-            `tar falló con código ${result.code} usando el shell de ${plan.execDomain.name}`,
+            `tar failed with code ${result.code} using the shell of ${plan.execDomain.name}`,
             {
               hint:
                 redactText(result.stderr || result.message || "") ||
-                "El dominio alternativo no pudo empaquetar la ruta destino; se usará walk."
+                "The alternate domain could not package the target path; walk will be used."
             }
           );
         }
         throw new AppError(
           "TAR_FAILED",
-          `tar falló con código ${result.code}`,
+          `tar failed with code ${result.code}`,
           { hint: redactText(result.stderr || result.message || "") || undefined }
         );
       }
@@ -403,7 +403,7 @@ export async function createRemoteArchive(
     if (!exists) {
       throw new AppError(
         "ARCHIVE_NOT_CREATED",
-        `No se creó el archivo remoto ${plan.restPath}`,
+        `The remote archive ${plan.restPath} was not created`,
         { hint: redactText(result.stderr || result.message || "") || undefined }
       );
     }
@@ -419,8 +419,8 @@ export async function createRemoteArchive(
       clearExecAccessCache(options.client);
       throw new AppError(
         "EXEC_UNAVAILABLE",
-        "El servidor no permite ejecutar comandos (exec)",
-        { cause: error, hint: "Usa mode=walk o revisa el shell de la suscripción." }
+        "The server does not allow running commands (exec)",
+        { cause: error, hint: "Use mode=walk or check the subscription shell." }
       );
     }
     throw error;
@@ -441,18 +441,18 @@ export async function pickTempDir(
       await ensureRemoteDir(client, candidate);
       return candidate;
     } catch {
-      // Se prueba el siguiente candidato.
+      // Try the next candidate.
     }
   }
 
   throw new AppError(
     "ARCHIVE_TEMP_DIR_FAILED",
-    "No se pudo crear un directorio temporal en el servidor",
-    { hint: "Comprueba permisos de escritura en la raíz de la suscripción." }
+    "Could not create a temporary directory on the server",
+    { hint: "Check write permissions on the subscription root." }
   );
 }
 
-/** Lee la lista de entradas del archivo sin extraerlo. */
+/** Reads the archive's entry list without extracting it. */
 export async function listArchiveEntries(
   archivePath: string
 ): Promise<ArchiveEntryInfo[]> {
@@ -469,14 +469,14 @@ export async function listArchiveEntries(
       }
     });
   } catch (error) {
-    throw new AppError("ARCHIVE_LIST_FAILED", `No se pudo leer ${archivePath}`, {
+    throw new AppError("ARCHIVE_LIST_FAILED", `Could not read ${archivePath}`, {
       cause: error
     });
   }
   return entries;
 }
 
-/** Devuelve las entradas inseguras para una extracción local. */
+/** Returns the unsafe entries for a local extraction. */
 export function findUnsafeEntries(entries: ArchiveEntryInfo[]): string[] {
   const unsafe: string[] = [];
   for (const entry of entries) {
@@ -488,32 +488,32 @@ export function findUnsafeEntries(entries: ArchiveEntryInfo[]): string[] {
 
 function unsafeReason(entry: ArchiveEntryInfo): string | null {
   const name = entry.path.replace(/\\/g, "/");
-  if (path.posix.isAbsolute(name)) return "ruta absoluta";
+  if (path.posix.isAbsolute(name)) return "absolute path";
 
   const segments = name.split("/").filter((segment) => segment.length > 0);
-  if (segments.includes("..")) return "contiene ..";
+  if (segments.includes("..")) return "contains ..";
 
   for (const segment of segments) {
-    if (WINDOWS_INVALID.test(segment)) return "nombre inválido en Windows";
-    if (/[. ]$/.test(segment)) return "termina en punto o espacio (inválido en Windows)";
-    if (WINDOWS_RESERVED.test(segment)) return "nombre reservado en Windows";
+    if (WINDOWS_INVALID.test(segment)) return "invalid Windows name";
+    if (/[. ]$/.test(segment)) return "ends in a dot or space (invalid on Windows)";
+    if (WINDOWS_RESERVED.test(segment)) return "reserved Windows name";
   }
 
   if (entry.linkpath) {
     const link = entry.linkpath.replace(/\\/g, "/");
-    if (path.posix.isAbsolute(link)) return "enlace absoluto";
+    if (path.posix.isAbsolute(link)) return "absolute link";
     const resolved = path.posix.normalize(
       path.posix.join(path.posix.dirname(name), link)
     );
     if (resolved === ".." || resolved.startsWith("../")) {
-      return "enlace fuera del destino";
+      return "link outside the destination";
     }
   }
 
   return null;
 }
 
-/** Errores que permiten caer al modo REST sin shell. */
+/** Errors that allow falling back to REST mode without a shell. */
 const FALLBACK_CODES = new Set([
   "EXEC_UNAVAILABLE",
   "EXEC_PATH_MAPPING_FAILED",
@@ -524,7 +524,7 @@ export function isExecFallbackError(error: unknown): boolean {
   return error instanceof AppError && FALLBACK_CODES.has(error.code);
 }
 
-/** Extrae el archivo en local, validando antes todas las entradas. */
+/** Extracts the archive locally, validating all entries first. */
 export async function extractArchive(options: {
   archivePath: string;
   localDir: string;
@@ -535,9 +535,9 @@ export async function extractArchive(options: {
   if (unsafe.length > 0) {
     throw new AppError(
       "ARCHIVE_UNSAFE_ENTRIES",
-      `El archivo contiene rutas no seguras para Windows (${unsafe.length})`,
+      `The archive contains paths that are unsafe for Windows (${unsafe.length})`,
       {
-        hint: `Ejemplos: ${unsafe.slice(0, 10).join(", ")}. Excluye esas rutas o descárgalas fichero a fichero.`
+        hint: `Examples: ${unsafe.slice(0, 10).join(", ")}. Exclude those paths or download them file by file.`
       }
     );
   }
@@ -561,7 +561,7 @@ export async function extractArchive(options: {
   } catch (error) {
     throw new AppError(
       "EXTRACT_FAILED",
-      `No se pudo extraer el archivo en ${options.localDir}`,
+      `Could not extract the archive into ${options.localDir}`,
       { cause: error }
     );
   }
@@ -589,7 +589,7 @@ async function countExistingTargets(
   return found.filter(Boolean).length;
 }
 
-/** Borra el archivo temporal remoto y su directorio si queda vacío. */
+/** Deletes the remote temporary archive and its directory if it is left empty. */
 export async function cleanupRemoteArchive(
   client: PleskClient,
   archive: Pick<RemoteArchive, "restPath" | "tempDirRest"> & {
@@ -605,7 +605,7 @@ export async function cleanupRemoteArchive(
   }
 }
 
-/** Borra un archivo local si existe. */
+/** Deletes a local file if it exists. */
 export async function removeLocalFile(filePath: string): Promise<void> {
   await rm(filePath, { force: true }).catch(() => undefined);
 }

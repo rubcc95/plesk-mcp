@@ -12,7 +12,7 @@ import { textArg, type ToolPolicy, type ToolRegistrar } from "./policy.js";
 const serverField = z
   .string()
   .optional()
-  .describe("Nombre del servidor; si se omite, usa el defecto");
+  .describe("Server name; if omitted, the default is used");
 
 const updateSchema = {
   server: serverField,
@@ -32,8 +32,8 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "node_list",
     readPolicy,
     {
-      title: "Listar aplicaciones Node.js",
-      description: "Lista las aplicaciones Node.js gestionadas por Plesk.",
+      title: "List Node.js applications",
+      description: "Lists the Node.js applications managed by Plesk.",
       inputSchema: { server: serverField }
     },
     async ({ server: serverName }) =>
@@ -49,8 +49,8 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "node_info",
     readPolicy,
     {
-      title: "Información de una aplicación Node.js",
-      description: "Devuelve la configuración de la aplicación Node.js del dominio.",
+      title: "Node.js application information",
+      description: "Returns the Node.js application configuration for the domain.",
       inputSchema: {
         server: serverField,
         domain: z.string().optional()
@@ -71,12 +71,12 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Configurar la aplicación Node.js del dominio ${textArg(args, "domain", "(por defecto)")}`
+        `Configure the Node.js application for domain ${textArg(args, "domain", "(default)")}`
     },
     {
-      title: "Configurar una aplicación Node.js",
+      title: "Configure a Node.js application",
       description:
-        "Auto-configura la aplicación si no hay opciones; si se pasan opciones, actualiza los ajustes indicados.",
+        "Auto-configures the application when no options are given; if options are passed, updates the specified settings.",
       inputSchema: updateSchema
     },
     async (options) =>
@@ -101,12 +101,12 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Actualizar los ajustes Node.js del dominio ${textArg(args, "domain", "(por defecto)")}`
+        `Update the Node.js settings for domain ${textArg(args, "domain", "(default)")}`
     },
     {
-      title: "Actualizar ajustes de Node.js",
+      title: "Update Node.js settings",
       description:
-        "Actualiza app root, startup file, versión de Node, modo, package manager o document root.",
+        "Updates app root, startup file, Node version, mode, package manager or document root.",
       inputSchema: updateSchema
     },
     async (options) =>
@@ -123,9 +123,9 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "node_env_list",
     readPolicy,
     {
-      title: "Listar variables de entorno",
+      title: "List environment variables",
       description:
-        "Lista solo los nombres de las variables de entorno de la aplicación. Nunca devuelve valores.",
+        "Lists only the names of the application's environment variables. Never returns values.",
       inputSchema: {
         server: serverField,
         domain: z.string().optional()
@@ -141,7 +141,7 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
           names,
           note:
             names.length === 0
-              ? "No se pudieron parsear nombres; revisa node_info o la salida de Plesk."
+              ? "Could not parse names; check node_info or the Plesk output."
               : undefined
         };
       })
@@ -153,18 +153,18 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Importar variables de entorno desde ${textArg(args, "file")} en el dominio ${textArg(args, "domain", "(por defecto)")}`
+        `Import environment variables from ${textArg(args, "file")} into domain ${textArg(args, "domain", "(default)")}`
     },
     {
-      title: "Importar variables de entorno desde un .env",
+      title: "Import environment variables from a .env",
       description:
-        "Lee un archivo .env local y escribe sus variables en la aplicación Node.js. Las variables se guardan siempre como secretas en Plesk. Nunca devuelve nombres ni valores.",
+        "Reads a local .env file and writes its variables to the Node.js application. Variables are always stored as secret in Plesk. Never returns names or values.",
       inputSchema: {
         server: serverField,
         file: z
           .string()
           .min(1)
-          .describe("Ruta local del archivo .env, dentro del proyecto"),
+          .describe("Local path of the .env file, inside the project"),
         domain: z.string().optional()
       }
     },
@@ -185,9 +185,9 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
           if (result.code === 0) continue;
           throw new AppError(
             "NODE_ENV_SET_FAILED",
-            `No se pudo escribir la variable de la línea ${entry.line} (${index + 1} de ${entries.length}); Plesk devolvió el código ${result.code}`,
+            `Could not write the variable from line ${entry.line} (${index + 1} of ${entries.length}); Plesk returned code ${result.code}`,
             {
-              hint: "No se han escrito las variables restantes. Revisa el error en Plesk o `plesk ext nodejs --help` en el servidor."
+              hint: "The remaining variables were not written. Check the error in Plesk or `plesk ext nodejs --help` on the server."
             }
           );
         }
@@ -197,7 +197,7 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
           variables: entries.length,
           secret: true,
           updated: true,
-          hint: "Reinicia la aplicación para aplicar las variables (node_restart)."
+          hint: "Restart the application to apply the variables (node_restart)."
         };
       })
   );
@@ -208,11 +208,11 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Eliminar la variable de entorno ${textArg(args, "key")}`
+        `Remove environment variable ${textArg(args, "key")}`
     },
     {
-      title: "Eliminar una variable de entorno",
-      description: "Elimina una variable de entorno de la aplicación.",
+      title: "Remove an environment variable",
+      description: "Removes an environment variable from the application.",
       inputSchema: {
         server: serverField,
         key: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
@@ -234,12 +234,12 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Instalar dependencias Node.js en el dominio ${textArg(args, "domain", "(por defecto)")}`
+        `Install Node.js dependencies for domain ${textArg(args, "domain", "(default)")}`
     },
     {
-      title: "Instalar dependencias de Node.js",
+      title: "Install Node.js dependencies",
       description:
-        "Ejecuta la instalación de dependencias con la versión de Node y el package manager de la aplicación.",
+        "Runs dependency installation with the application's Node version and package manager.",
       inputSchema: {
         server: serverField,
         domain: z.string().optional()
@@ -260,11 +260,11 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Ejecutar el script "${textArg(args, "script")}" del proyecto Node.js`
+        `Run the "${textArg(args, "script")}" script of the Node.js project`
     },
     {
-      title: "Ejecutar un script de package.json",
-      description: "Ejecuta un script del proyecto Node.js.",
+      title: "Run a package.json script",
+      description: "Runs a script from the Node.js project.",
       inputSchema: {
         server: serverField,
         script: z.string().min(1),
@@ -288,7 +288,7 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
             safety: "write",
             destructive: true,
             summarize: (args) =>
-              `Ejecutar ${action} de la aplicación Node.js del dominio ${textArg(args, "domain", "(por defecto)")}`
+              `Run ${action} for the Node.js application on domain ${textArg(args, "domain", "(default)")}`
           };
 
     registrar.registerTool(
@@ -296,7 +296,7 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
       policy,
       {
         title: `Node.js: ${action}`,
-        description: `Ejecuta ${action} sobre la aplicación Node.js del dominio.`,
+        description: `Runs ${action} on the domain's Node.js application.`,
         inputSchema: {
           server: serverField,
           domain: z.string().optional()
@@ -326,10 +326,10 @@ function ensureOk(result: PleskCliResult, action: string): void {
   throw new AppError(
     "NODE_CLI_FAILED",
     redactText(
-      result.stderr || result.message || `${action} terminó con código ${result.code}`
+      result.stderr || result.message || `${action} finished with code ${result.code}`
     ),
     {
-      hint: "Revisa `plesk ext nodejs --help` en el servidor y los flags del adaptador."
+      hint: "Check `plesk ext nodejs --help` on the server and the adapter flags."
     }
   );
 }

@@ -225,7 +225,7 @@ function normalizeResult(
     };
   }
 
-  // Resultado inesperado (por ejemplo, un CALL que no devuelve filas).
+  // Unexpected result (for example, a CALL that returns no rows).
   return {
     results: [{ type: "raw", raw: JSON.stringify(rows ?? null) }],
     truncated: false
@@ -301,7 +301,7 @@ function toCell(value: unknown): string | null {
   return String(value);
 }
 
-/** Cierra todos los pools (útil en tests y al apagar el proceso). */
+/** Closes all pools (useful in tests and on process shutdown). */
 export async function closeAllPools(): Promise<void> {
   const entries = [...pools.values()];
   pools.clear();

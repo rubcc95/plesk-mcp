@@ -1,11 +1,11 @@
 import { open } from "node:fs/promises";
 
-/** Lee un fichero por trozos sin cargarlo entero en memoria. */
+/** Reads a file in chunks without loading it entirely into memory. */
 export async function* readChunks(
   filePath: string,
   chunkSize: number
 ): AsyncGenerator<Buffer> {
-  if (chunkSize <= 0) throw new Error("chunkSize debe ser mayor que 0");
+  if (chunkSize <= 0) throw new Error("chunkSize must be greater than 0");
 
   const handle = await open(filePath, "r");
   try {

@@ -11,6 +11,7 @@ import {
 } from "./schema.js";
 
 export const GLOBAL_CONFIG_ENV = "PLESK_GLOBAL_CONFIG";
+export const PROJECT_ROOT_ENV = "PLESK_PROJECT_ROOT";
 export const LOCAL_CONFIG_PATH = ".plesk/config.json";
 export const DEFAULT_GLOBAL_CONFIG_PATH = ".config/plesk-mcp/config.json";
 
@@ -42,13 +43,22 @@ export function resolveGlobalConfigPath(explicit?: string): string {
   return resolvePath(value);
 }
 
+/**
+ * Local project root. With `npx` the cwd is decided by the MCP client, so
+ * `PLESK_PROJECT_ROOT` allows setting it explicitly.
+ */
+export function resolveProjectRoot(): string {
+  return path.resolve(process.env[PROJECT_ROOT_ENV] ?? process.cwd());
+}
+
 export function resolveLocalConfigPath(): string {
-  return path.resolve(process.cwd(), LOCAL_CONFIG_PATH);
+  return path.resolve(resolveProjectRoot(), LOCAL_CONFIG_PATH);
 }
 
 /**
- * Carga los servidores Plesk y las bases de datos locales del config global y
- * del local. Mismo formato en ambos; se unen por nombre y gana el local.
+ * Loads the Plesk servers and local databases from the global and local
+ * configs. Both use the same format; entries are merged by name and the
+ * local one wins.
  */
 export async function loadRegistry(
   globalExplicit?: string
@@ -64,10 +74,10 @@ export async function loadRegistry(
   if (globalRaw === null && localRaw === null) {
     throw new AppError(
       "CONFIG_NOT_FOUND",
-      `No existe ni el config global (${globalConfigPath}) ni el local (${localConfigPath})`,
+      `Neither the global config (${globalConfigPath}) nor the local one (${localConfigPath}) exists`,
       {
         hint:
-          "Crea .plesk/config.json con `plesk-project init` o el global con `plesk-project init --global`."
+          "Create .plesk/config.json with `plesk-project init`, or the global one with `plesk-project init --global`."
       }
     );
   }
@@ -97,9 +107,9 @@ export async function loadRegistry(
   if (servers.length === 0 && localDatabases.length === 0) {
     throw new AppError(
       "CONFIG_EMPTY",
-      "La configuración no contiene ningún servidor Plesk ni base de datos local",
+      "The configuration does not contain any Plesk server or local database",
       {
-        hint: `Añade servidores o localDatabases a ${globalConfigPath} o ${localConfigPath}.`
+        hint: `Add servers or localDatabases to ${globalConfigPath} or ${localConfigPath}.`
       }
     );
   }
@@ -108,9 +118,9 @@ export async function loadRegistry(
   if (duplicate) {
     throw new AppError(
       "DUPLICATE_TARGET_NAME",
-      `"${duplicate.name}" está definido a la vez en servers y en localDatabases`,
+      `"${duplicate.name}" is defined both in servers and in localDatabases`,
       {
-        hint: "Usa nombres distintos para no confundir `server` con `pc` en las tools SQL."
+        hint: "Use different names so `server` and `pc` are not confused in the SQL tools."
       }
     );
   }
@@ -119,8 +129,8 @@ export async function loadRegistry(
   if (explicitDefault && !serversByName.has(explicitDefault)) {
     throw new AppError(
       "DEFAULT_SERVER_NOT_FOUND",
-      `defaultServer apunta a "${explicitDefault}", que no existe`,
-      { hint: `Servidores disponibles: ${servers.map((server) => server.name).join(", ") || "(ninguno)"}` }
+      `defaultServer points to "${explicitDefault}", which does not exist`,
+      { hint: `Available servers: ${servers.map((server) => server.name).join(", ") || "(none)"}` }
     );
   }
 
@@ -142,24 +152,24 @@ export async function loadRegistry(
     globalConfigFound: globalRaw !== null,
     localConfigPath,
     localConfigFound: localRaw !== null,
-    projectRoot: process.cwd()
+    projectRoot: resolveProjectRoot()
   };
 }
 
-/** Resuelve `env:VAR` y valida un servidor concreto al usarlo. */
+/** Resolves `env:VAR` and validates a specific server when it is used. */
 export function materializeServer(entry: ServerEntry): ServerConfig {
   const resolved = resolveEnvRefs(stripSource(entry));
   const result = ServerSchema.safeParse(resolved);
   if (!result.success) {
     throw new AppError(
       "SERVER_INVALID",
-      `Servidor "${entry.name}" inválido: ${formatIssues(result.error.issues)}`
+      `Server "${entry.name}" is invalid: ${formatIssues(result.error.issues)}`
     );
   }
   return result.data;
 }
 
-/** Resuelve `env:VAR` y valida una base de datos local al usarla. */
+/** Resolves `env:VAR` and validates a local database when it is used. */
 export function materializeLocalDatabase(
   entry: LocalDatabaseEntry
 ): LocalDatabaseConfig {
@@ -168,13 +178,13 @@ export function materializeLocalDatabase(
   if (!result.success) {
     throw new AppError(
       "LOCAL_DATABASE_INVALID",
-      `Base de datos local "${entry.name}" inválida: ${formatIssues(result.error.issues)}`
+      `Local database "${entry.name}" is invalid: ${formatIssues(result.error.issues)}`
     );
   }
   return result.data;
 }
 
-/** Resumen sin secretos para `project_info` y `servers_list`. */
+/** Secret-free summary for `project_info` and `servers_list`. */
 export function registrySummary(loaded: LoadedRegistry) {
   return {
     defaultServer: loaded.defaultServer,
@@ -213,7 +223,7 @@ function parseRegistry(
     if (!arrayResult.success) {
       throw new AppError(
         "CONFIG_INVALID",
-        `${kind === "GLOBAL" ? "Config global" : "Config local"} inválido (${filePath}): ${formatIssues(arrayResult.error.issues)}`
+        `${kind === "GLOBAL" ? "Global config" : "Local config"} is invalid (${filePath}): ${formatIssues(arrayResult.error.issues)}`
       );
     }
     return { servers: arrayResult.data, localDatabases: [] };
@@ -223,7 +233,7 @@ function parseRegistry(
   if (!result.success) {
     throw new AppError(
       "CONFIG_INVALID",
-      `${kind === "GLOBAL" ? "Config global" : "Config local"} inválido (${filePath}): ${formatIssues(result.error.issues)}`
+      `${kind === "GLOBAL" ? "Global config" : "Local config"} is invalid (${filePath}): ${formatIssues(result.error.issues)}`
     );
   }
   return result.data;
@@ -238,7 +248,7 @@ async function readConfig(
     raw = await readFile(filePath, "utf8");
   } catch (error) {
     if (isNotFound(error)) return null;
-    throw new AppError(`${kind}_CONFIG_READ`, `No se pudo leer ${filePath}`, {
+    throw new AppError(`${kind}_CONFIG_READ`, `Could not read ${filePath}`, {
       cause: error
     });
   }
@@ -246,7 +256,7 @@ async function readConfig(
   try {
     return JSON.parse(raw);
   } catch (error) {
-    throw new AppError(`${kind}_CONFIG_INVALID_JSON`, `JSON inválido en ${filePath}`, {
+    throw new AppError(`${kind}_CONFIG_INVALID_JSON`, `Invalid JSON in ${filePath}`, {
       cause: error
     });
   }
@@ -268,14 +278,14 @@ function resolveEnvRefs(value: unknown): unknown {
   if (typeof value === "string" && value.startsWith("env:")) {
     const name = value.slice(4).trim();
     if (!name) {
-      throw new AppError("CONFIG_ENV_MISSING", "Referencia env: vacía en la configuración");
+      throw new AppError("CONFIG_ENV_MISSING", "Empty env: reference in the configuration");
     }
     const envValue = process.env[name];
     if (envValue === undefined) {
       throw new AppError(
         "CONFIG_ENV_MISSING",
-        `Falta la variable de entorno ${name}`,
-        { hint: `Define ${name} antes de arrancar el MCP.` }
+        `Missing environment variable ${name}`,
+        { hint: `Define ${name} before starting the MCP.` }
       );
     }
     return envValue;
@@ -304,7 +314,7 @@ function resolvePath(value: string): string {
 
 function formatIssues(issues: Array<{ path: PropertyKey[]; message: string }>): string {
   return issues
-    .map((issue) => `${issue.path.join(".") || "(raíz)"}: ${issue.message}`)
+    .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
     .join("; ");
 }
 

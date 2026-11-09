@@ -1,155 +1,178 @@
-# Configuración
+# Configuration
 
-El MCP lee dos archivos con exactamente el mismo formato:
+The MCP reads two files with exactly the same format:
 
-- Global: `~/.config/plesk-mcp/config.json`
-- Local: `<raíz-del-proyecto>/.plesk/config.json`
+- Global: `~/.config/plesk-mcp/config.json`. Override this path with the
+  `PLESK_GLOBAL_CONFIG` environment variable.
+- Local: `<project-root>/.plesk/config.json`.
 
-## Formato
+## Format
 
 ```json
 {
-  "defaultServer": "prod-mundopc",
+  "defaultServer": "prod-example",
   "servers": [
     {
-      "name": "prod-mundopc",
-      "url": "https://plesk.mundopc.com:8443",
+      "name": "prod-example",
+      "url": "https://plesk.example.com:8443",
       "auth": {
         "mode": "apiKey",
-        "apiKey": "env:PLESK_MUNDOPC_KEY"
+        "apiKey": "env:PLESK_PROD_KEY"
       },
+      "verifyTls": true,
+      "timeoutMs": null,
       "dbUser": "db_admin",
-      "dbPass": "env:PLESK_MUNDOPC_DB_PASS"
+      "dbPass": "env:PLESK_PROD_DB_PASS"
     }
   ],
   "localDatabases": [
     {
-      "name": "ballena",
-      "host": "192.168.1.50",
+      "name": "local-mysql-1",
+      "host": "127.0.0.1",
       "port": 3306,
       "user": "root",
-      "password": "env:MYSQL_BALLENA_PASSWORD"
+      "password": "env:MYSQL_LOCAL_1_PASSWORD",
+      "ssl": false
     }
   ]
 }
 ```
 
-También se acepta un array plano, pero solo para servidores Plesk:
+A flat array is also accepted, but only for Plesk servers:
 
 ```json
 [
   {
-    "name": "prod-mundopc",
-    "url": "https://plesk.mundopc.com:8443",
-    "auth": { "mode": "apiKey", "apiKey": "env:PLESK_MUNDOPC_KEY" },
+    "name": "prod-example",
+    "url": "https://plesk.example.com:8443",
+    "auth": { "mode": "apiKey", "apiKey": "env:PLESK_PROD_KEY" },
+    "verifyTls": true,
+    "timeoutMs": null,
     "dbUser": "db_admin",
-    "dbPass": "env:PLESK_MUNDOPC_DB_PASS"
+    "dbPass": "env:PLESK_PROD_DB_PASS"
   }
 ]
 ```
 
-En ese caso no hay `defaultServer` ni `localDatabases`: el primer servidor es el
-defecto. Para usar bases de datos locales hay que usar el formato de objeto.
+In that case there is no `defaultServer` and no `localDatabases`: the first
+server is the default. To use local databases you must use the object format.
 
-## Servidores Plesk (`servers`)
+## Plesk servers (`servers`)
 
-Una entrada por **servidor Plesk**, no por dominio. Los dominios ya no se
-configuran aquí: se pasan en las tools que los necesitan.
+One entry per **Plesk server**, not per domain. Domains are no longer configured
+here: they are passed to the tools that need them.
 
-- `name`: identificador único. Es el valor que recibe la tool en `server`.
-- `url`: URL base de Plesk, normalmente con `:8443`.
-- `auth.mode`: `apiKey` o `basic`.
+- `name`: unique identifier. This is the value the tool receives in `server`.
+- `url`: Plesk base URL, normally including `:8443`.
+- `auth.mode`: `apiKey` or `basic`.
   - `apiKey`: `auth.apiKey`.
-  - `basic`: `auth.username` y `auth.password`.
-- `dbUser`: usuario MySQL con acceso a todas las bases de datos del servidor.
-- `dbPass`: contraseña del usuario MySQL anterior.
-- `verifyTls`: por defecto `true`.
-- `timeoutMs`: opcional. Si se omite (o es `null`) no hay timeout; con un entero positivo se limita cada petición a esos milisegundos.
+  - `basic`: `auth.username` and `auth.password`.
+- `dbUser`: MySQL user with access to all databases on the server.
+- `dbPass`: password for that MySQL user.
+- `verifyTls`: TLS certificate verification, default `true`.
+- `timeoutMs`: optional per-request timeout in milliseconds. If omitted (or
+  `null`) there is no timeout; a positive integer limits each request to that
+  many milliseconds.
 
-`dbUser` y `dbPass` deben indicarse juntos o no indicarse. Si faltan, las tools
-SQL fallan en cerrado con `DB_CREDENTIALS_MISSING`, pero las tools de ficheros y
-Node siguen funcionando.
+`dbUser` and `dbPass` must be provided together or not at all. If they are
+missing, SQL tools fail closed with `DB_CREDENTIALS_MISSING`, but file and
+Node.js tools keep working.
 
-La conexión MySQL no se hace por TCP desde tu equipo: se busca cualquier
-dominio del servidor con shell y cliente `mysql`/`mariadb`, y se ejecuta el CLI
-allí. No hace falta configurar SSH ni el host de la base de datos.
+The MySQL connection is not made over TCP from your machine: the client finds any
+domain on the server with a shell and the `mysql`/`mariadb` client, and runs the
+CLI there. You do not need to configure SSH or the database host.
 
-## Bases de datos locales (`localDatabases`)
+## Local databases (`localDatabases`)
 
-Conexiones MySQL directas de la red local, sin depender de un servidor Plesk.
-El valor de `name` es el que recibe la tool en `pc`.
+Direct MySQL connections on the local network, independent of a Plesk server.
+The `name` value is what the tool receives in `pc`.
 
-- `name`: identificador único (`ballena`, `elefante`...).
-- `host`: IP o nombre del equipo.
-- `port`: por defecto `3306`.
-- `user` y `password`: credenciales MySQL.
-- `ssl`: por defecto `false`.
+- `name`: unique identifier (for example `local-mysql-1`).
+- `host`: IP address or hostname.
+- `port`: default `3306`.
+- `user` and `password`: MySQL credentials.
+- `ssl`: enable TLS for the connection, default `false`.
 
 ```json
 {
   "localDatabases": [
     {
-      "name": "ballena",
-      "host": "192.168.1.50",
+      "name": "local-mysql-1",
+      "host": "127.0.0.1",
       "port": 3306,
       "user": "root",
-      "password": "env:MYSQL_BALLENA_PASSWORD"
+      "password": "env:MYSQL_LOCAL_1_PASSWORD",
+      "ssl": false
     },
     {
-      "name": "elefante",
-      "host": "192.168.1.51",
-      "port": 3306,
+      "name": "local-mysql-2",
+      "host": "127.0.0.1",
+      "port": 3307,
       "user": "root",
-      "password": "env:MYSQL_ELEFANTE_PASSWORD"
+      "password": "env:MYSQL_LOCAL_2_PASSWORD",
+      "ssl": false
     }
   ]
 }
 ```
 
-## Dominio en las tools
+## Domain in tools
 
-Las tools de Plesk que trabajan sobre una suscripción aceptan `domain`
-opcional:
+Plesk tools that operate on a subscription accept an optional `domain`:
 
-- `file_*`, `logs`, `deps_install`, `doctor` y `node_*`.
+- `file_*`, `logs`, `deps_install`, `doctor`, and `node_*`.
 
-Regla de resolución:
+Resolution rule:
 
-1. Si la tool recibe `domain`, se usa ese.
-2. Si no, y el servidor tiene un solo dominio, se autodetecta.
-3. Si hay varios y no se indica, la tool devuelve `PLESK_DOMAIN_REQUIRED` con la
-   lista de dominios.
+1. If the tool receives `domain`, that domain is used.
+2. Otherwise, if the server has a single domain, it is auto-detected.
+3. If there are several and none is provided, the tool returns
+   `PLESK_DOMAIN_REQUIRED` with the list of domains.
 
-Así no hace falta duplicar una entrada de `servers` por cada dominio del mismo
-servidor.
+This avoids duplicating a `servers` entry for each domain on the same server.
 
-## Unión de global y local
+## Merging global and local
 
-- Se cargan los dos archivos.
-- `servers` se unen por `name`; si el mismo nombre está en los dos, gana el local.
-- `localDatabases` se unen por `name`; si el mismo nombre está en los dos, gana el local.
-- `defaultServer` local gana sobre el global. Si no hay, el primero de la unión
-  (global y luego local) es el defecto. Si no hay servidores Plesk, queda vacío.
-- Un nombre no puede estar a la vez en `servers` y en `localDatabases`:
+- Both files are loaded.
+- `servers` are merged by `name`; if the same name exists in both, the local one
+  wins.
+- `localDatabases` are merged by `name`; if the same name exists in both, the
+  local one wins.
+- A local `defaultServer` wins over the global one. If neither is set, the first
+  server in the union (global first, then local) is the default. If there are no
+  Plesk servers, it stays empty.
+- A name cannot exist in both `servers` and `localDatabases`:
   `DUPLICATE_TARGET_NAME`.
-- Si no hay ni servidores ni bases locales, el MCP arranca y devuelve
-  `CONFIG_EMPTY` desde las tools.
+- If there are neither servers nor local databases, the MCP starts and tools
+  return `CONFIG_EMPTY`.
 
-## Referencias `env:`
+## `env:` references
 
-Cualquier string puede ser `env:NOMBRE`. Se resuelve al usar el servidor o la
-base de datos, no al cargar el archivo. Así una credencial ausente no rompe a
-los demás.
+Any string can be `env:NAME`. It is resolved when the server or database is used,
+not when the file is loaded. This way a missing credential does not break the
+others.
 
 ```json
 "apiKey": "env:PLESK_API_KEY",
 "dbPass": "env:PLESK_DB_PASS",
-"password": "env:MYSQL_BALLENA_PASSWORD"
+"password": "env:MYSQL_LOCAL_1_PASSWORD"
 ```
 
-## Crear los archivos
+## Creating the files
 
 ```bash
-npx plesk-project init
-npx plesk-project init --global
+npx -y @rubcc95/plesk-mcp init
+npx -y @rubcc95/plesk-mcp init --global
 ```
+
+If the package is installed globally, use `plesk-mcp init` directly.
+
+## Project root
+
+The local config path is resolved as follows:
+
+1. `PLESK_PROJECT_ROOT`, if set.
+2. The process working directory (`cwd`).
+
+With `npx`, the `cwd` is decided by the MCP client, so if the client cannot set
+it (Claude Desktop, for example), use `PLESK_PROJECT_ROOT` or the global config.

@@ -41,8 +41,8 @@ export class ServerRegistry {
     if (!target) {
       throw new AppError(
         "SERVER_NOT_FOUND",
-        "No hay ningún servidor Plesk configurado",
-        { hint: "Añade servidores a `servers` en el config global o local." }
+        "No Plesk servers are configured",
+        { hint: "Add servers to `servers` in the global or local config." }
       );
     }
 
@@ -51,11 +51,11 @@ export class ServerRegistry {
     if (!entry) {
       throw new AppError(
         "SERVER_NOT_FOUND",
-        `No existe el servidor "${target}"`,
+        `Server "${target}" does not exist`,
         {
-          hint: `Servidores disponibles: ${this.loaded.servers
+          hint: `Available servers: ${this.loaded.servers
             .map((server) => server.name)
-            .join(", ") || "(ninguno)"}`
+            .join(", ") || "(none)"}`
         }
       );
     }

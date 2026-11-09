@@ -67,7 +67,7 @@ export async function planUpload(
   return buildLocalPlan(tree);
 }
 
-/** Resuelve exec, tar y la ruta temporal remota antes de subir nada. */
+/** Resolves exec, tar, and the remote temporary path before uploading anything. */
 export async function prepareArchiveTarget(
   client: PleskClient,
   remoteDir: string,
@@ -97,8 +97,8 @@ export async function prepareArchiveTarget(
     tarBinary,
     tempDirRest,
     restPath,
-    // La subida siempre aterriza en el dominio destino (API fs), aunque el
-    // shell que extrae sea de otro dominio.
+    // The upload always lands on the target domain (fs API), even if the
+    // shell that extracts belongs to another domain.
     realPath: toRealPath(execPaths.prefix, restPath),
     realRemoteDir: toRealPath(execPaths.prefix, remoteDir),
     execDomain: { id: access.domain.id, name: access.domain.name },
@@ -136,7 +136,7 @@ export async function createLocalArchive(
   if (entries.length === 0) {
     throw new AppError(
       "UPLOAD_EMPTY",
-      "No hay ficheros ni directorios que subir después de aplicar los filtros"
+      "There are no files or directories to upload after applying the filters"
     );
   }
 
@@ -164,7 +164,7 @@ export async function createLocalArchive(
     await rm(localArchive, { force: true }).catch(() => undefined);
     throw new AppError(
       "UPLOAD_ARCHIVE_FAILED",
-      "No se pudo crear el archivo tar.gz local",
+      "Could not create the local tar.gz archive",
       { cause: error }
     );
   }
@@ -177,7 +177,7 @@ export async function createLocalArchive(
   };
 }
 
-/** Crea el tar.gz, lo sube y lo extrae en el servidor. */
+/** Creates the tar.gz, uploads it, and extracts it on the server. */
 export async function uploadArchive(options: UploadArchiveOptions) {
   const startedAt = Date.now();
   const plan = await planUpload(options);
@@ -215,10 +215,10 @@ export async function uploadArchive(options: UploadArchiveOptions) {
           clearExecAccessCache(options.client);
           throw new AppError(
             "EXEC_UNAVAILABLE",
-            "El servidor no permite ejecutar comandos (exec)",
+            "The server does not allow running commands (exec)",
             {
               cause: error,
-              hint: "Se usará la subida fichero a fichero por REST."
+              hint: "File-by-file upload over REST will be used."
             }
           );
         }
@@ -230,17 +230,17 @@ export async function uploadArchive(options: UploadArchiveOptions) {
       if (target.foreign) {
         throw new AppError(
           "EXEC_UNAVAILABLE",
-          `tar falló con código ${result.code} al extraer como ${target.execDomain.name}`,
+          `tar failed with code ${result.code} while extracting as ${target.execDomain.name}`,
           {
             hint:
               redactText(result.stderr || result.message || "") ||
-              "El dominio alternativo no pudo escribir en el destino; se usará la subida fichero a fichero."
+              "The alternate domain could not write to the destination; file-by-file upload will be used."
           }
         );
       }
       throw new AppError(
         "UPLOAD_EXTRACT_FAILED",
-        `tar falló con código ${result.code} al extraer en ${options.remoteDir}`,
+        `tar failed with code ${result.code} while extracting into ${options.remoteDir}`,
         { hint: redactText(result.stderr || result.message || "") || undefined }
       );
     }
@@ -249,7 +249,7 @@ export async function uploadArchive(options: UploadArchiveOptions) {
     if (detail) warnings.push(detail);
     if (target.foreign) {
       warnings.push(
-        `Extracción ejecutada como el dominio ${target.execDomain.name}; revisa el propietario de los ficheros creados.`
+        `Extraction run as domain ${target.execDomain.name}; check the owner of the created files.`
       );
     }
 
@@ -283,7 +283,7 @@ export async function uploadArchive(options: UploadArchiveOptions) {
   }
 }
 
-/** Sube fichero a fichero en paralelo por REST, sin shell. */
+/** Uploads file by file in parallel over REST, without a shell. */
 export async function uploadWalk(options: UploadArchiveOptions) {
   const startedAt = Date.now();
   const plan = await planUpload(options);

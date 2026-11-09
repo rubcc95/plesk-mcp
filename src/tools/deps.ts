@@ -28,24 +28,24 @@ export function registerDepsTools(registrar: ToolRegistrar, ctx: ToolContext): v
           .map((part) => String(part))
           .join(" ");
         const cwd = textArg(args, "cwd", "");
-        return `Ejecutar "${command}"${cwd ? ` en ${cwd}` : ""}`;
+        return `Run "${command}"${cwd ? ` in ${cwd}` : ""}`;
       }
     },
     {
-      title: "Instalar dependencias",
+      title: "Install dependencies",
       description:
-        "Ejecuta un comando de instalación (npm, pnpm, yarn, composer, bundle, pip). No es un shell libre.",
+        "Runs an install command (npm, pnpm, yarn, composer, bundle, pip, pip3). This is not a free-form shell.",
       inputSchema: {
         server: z
           .string()
           .optional()
-          .describe("Nombre del servidor; si se omite, usa el defecto"),
+          .describe("Server name; if omitted, the default is used"),
         domain: z
           .string()
           .min(1)
           .optional()
           .describe(
-            "Dominio de la suscripción; si se omite y el servidor tiene uno solo, se autodetecta"
+            "Subscription domain; if omitted and the server has only one, it is auto-detected"
           ),
         command: z.array(z.string().min(1)).min(1),
         cwd: z.string().optional()
@@ -57,8 +57,8 @@ export function registerDepsTools(registrar: ToolRegistrar, ctx: ToolContext): v
         if (!executable || !INSTALLERS.has(executable)) {
           throw new AppError(
             "INSTALL_COMMAND_NOT_ALLOWED",
-            `Comando de instalación no permitido: ${executable ?? "(vacío)"}`,
-            { hint: `Permitidos: ${[...INSTALLERS].join(", ")}` }
+            `Install command not allowed: ${executable ?? "(empty)"}`,
+            { hint: `Allowed: ${[...INSTALLERS].join(", ")}` }
           );
         }
 
@@ -78,9 +78,9 @@ export function registerDepsTools(registrar: ToolRegistrar, ctx: ToolContext): v
             redactText(
               result.stderr ||
                 result.message ||
-                `El comando de instalación terminó con código ${result.code}`
+                `The install command finished with code ${result.code}`
             ),
-            { hint: `Servidor: ${name}. Comando: ${command.join(" ")}` }
+            { hint: `Server: ${name}. Command: ${command.join(" ")}` }
           );
         }
 

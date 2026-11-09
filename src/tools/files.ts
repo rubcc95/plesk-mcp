@@ -56,14 +56,14 @@ const DEFAULT_CHUNK_MB = 4;
 const serverField = z
   .string()
   .optional()
-  .describe("Nombre del servidor; si se omite, usa el defecto");
+  .describe("Server name; if omitted, the default is used");
 
 const domainField = z
   .string()
   .min(1)
   .optional()
   .describe(
-    "Dominio de la suscripción; si se omite y el servidor tiene uno solo, se autodetecta"
+    "Subscription domain; if omitted and the server has only one, it is auto-detected"
   );
 
 const readPolicy: ToolPolicy = { safety: "read" };
@@ -83,13 +83,13 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "file_list",
     readPolicy,
     {
-      title: "Listar ficheros remotos",
+      title: "List remote files",
       description:
-        "Lista el contenido de un directorio absoluto de Plesk, por ejemplo /httpdocs.",
+        "Lists the contents of an absolute Plesk directory, for example /httpdocs.",
       inputSchema: {
         server: serverField,
         domain: domainField,
-        path: z.string().min(1).describe("Ruta absoluta, por ejemplo /httpdocs"),
+        path: z.string().min(1).describe("Absolute path, for example /httpdocs"),
         recursive: z.boolean().optional(),
         maxDepth: z.number().int().min(1).max(5).optional()
       }
@@ -113,8 +113,8 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "file_stat",
     readPolicy,
     {
-      title: "Metadatos de un fichero remoto",
-      description: "Devuelve tamaño, tipo, permisos y fecha de modificación.",
+      title: "Metadata of a remote file",
+      description: "Returns size, type, permissions and modification date.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -133,9 +133,9 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "file_read",
     readPolicy,
     {
-      title: "Leer un fichero remoto",
+      title: "Read a remote file",
       description:
-        "Lee un fichero de texto (utf8) o binario (base64). Limita el tamaño para no llenar el contexto.",
+        "Reads a text file (utf8) or binary file (base64). Size is limited to avoid filling the context.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -153,8 +153,8 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
         if (buffer.length > limit) {
           throw new AppError(
             "FILE_TOO_LARGE",
-            `El fichero tiene ${buffer.length} bytes y el límite es ${limit}`,
-            { hint: "Sube maxBytes o usa file_download." }
+            `The file is ${buffer.length} bytes and the limit is ${limit}`,
+            { hint: "Increase maxBytes or use file_download." }
           );
         }
         const selected = encoding ?? "utf8";
@@ -175,12 +175,12 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Escribir ${Buffer.byteLength(String(args.content ?? ""), "utf8")} bytes en ${textArg(args, "path")}`
+        `Write ${Buffer.byteLength(String(args.content ?? ""), "utf8")} bytes to ${textArg(args, "path")}`
     },
     {
-      title: "Escribir un fichero remoto",
+      title: "Write a remote file",
       description:
-        "Escribe contenido de texto o base64 en una ruta remota absoluta. Crea los directorios padre por defecto.",
+        "Writes text or base64 content to an absolute remote path. Creates parent directories by default.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -219,41 +219,41 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Subir ${listArg(args, "local_paths").length} ruta(s) local(es) a ${textArg(args, "remote")}${
-          args.overwrite === false ? " sin sobrescribir" : ""
+        `Upload ${listArg(args, "local_paths").length} local path(s) to ${textArg(args, "remote")}${
+          args.overwrite === false ? " without overwriting" : ""
         }`
     },
     {
-      title: "Subir ficheros o directorios locales",
+      title: "Upload local files or directories",
       description:
-        "Sube una o varias rutas locales. Si hay un único fichero se sube directamente por trozos a la ruta remota indicada. Si hay varios ficheros o algún directorio, usa el directorio remoto y transfiere con tar.gz, con fallback paralelo por REST si no hay shell.",
+        "Uploads one or more local paths. A single file is uploaded directly in chunks to the given remote path. Multiple files or any directory use the remote directory and transfer with tar.gz, with a parallel REST fallback when there is no shell.",
       inputSchema: {
         server: serverField,
         domain: domainField,
         local_paths: z
           .array(z.string().min(1))
           .min(1)
-          .describe("Rutas locales del proyecto; pueden ser ficheros o directorios"),
+          .describe("Local project paths; may be files or directories"),
         remote: z
           .string()
           .min(1)
           .describe(
-            "Con un único fichero, ruta remota exacta del fichero; en el resto, directorio remoto absoluto"
+            "With a single file, the exact remote file path; otherwise, the absolute remote directory"
           ),
         overwrite: z
           .boolean()
           .optional()
-          .describe("false: los ficheros existentes en el servidor se saltan"),
+          .describe("false: files that already exist on the server are skipped"),
         chunk_size_mb: z.number().positive().max(50).optional(),
         mode: z
           .string()
           .regex(/^[0-7]{3,4}$/)
           .optional()
-          .describe("Permisos para la subida directa de un único fichero"),
+          .describe("Permissions for the direct upload of a single file"),
         exclude: z
           .array(z.string().min(1))
           .optional()
-          .describe("Patrones de exclusión, por ejemplo node_modules o *.map"),
+          .describe("Exclude patterns, for example node_modules or *.map"),
         keep_empty_dirs: z.boolean().optional(),
         dry_run: z.boolean().optional()
       }
@@ -280,8 +280,8 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
         if (input.mode && !isDirect) {
           throw new AppError(
             "MODE_NOT_SUPPORTED",
-            "mode solo se aplica a la subida directa de un único fichero",
-            { hint: "Quita mode o sube el fichero por separado." }
+            "mode only applies to the direct upload of a single file",
+            { hint: "Remove mode or upload the file separately." }
           );
         }
 
@@ -422,30 +422,30 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
     "file_download",
     readPolicy,
     {
-      title: "Descargar ficheros o directorios remotos",
+      title: "Download remote files or directories",
       description:
-        "Descarga una o varias rutas remotas. Si hay un único fichero se descarga directamente a la ruta local indicada. Si hay varios ficheros o algún directorio, usa el directorio local y transfiere con tar.gz, con fallback paralelo por REST si no hay shell.",
+        "Downloads one or more remote paths. A single file is downloaded directly to the given local path. Multiple files or any directory use the local directory and transfer with tar.gz, with a parallel REST fallback when there is no shell.",
       inputSchema: {
         server: serverField,
         domain: domainField,
         remote_paths: z
           .array(z.string().min(1))
           .min(1)
-          .describe("Rutas remotas absolutas; pueden ser ficheros o directorios"),
+          .describe("Absolute remote paths; may be files or directories"),
         local: z
           .string()
           .min(1)
           .describe(
-            "Con un único fichero remoto, ruta local exacta del fichero; en el resto, directorio local"
+            "With a single remote file, the exact local file path; otherwise, the local directory"
           ),
         exclude: z
           .array(z.string().min(1))
           .optional()
-          .describe("Patrones de exclusión, por ejemplo node_modules o *.log"),
+          .describe("Exclude patterns, for example node_modules or *.log"),
         overwrite: z
           .boolean()
           .optional()
-          .describe("false: los ficheros existentes se saltan"),
+          .describe("false: existing files are skipped"),
         keep_empty_dirs: z.boolean().optional(),
         dry_run: z.boolean().optional()
       }
@@ -470,8 +470,8 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
           if (!exists) {
             throw new AppError(
               "REMOTE_NOT_FOUND",
-              `No existe la ruta remota ${remote}`,
-              { hint: "Comprueba la ruta con file_list o file_stat." }
+              `Remote path ${remote} does not exist`,
+              { hint: "Check the path with file_list or file_stat." }
             );
           }
         }
@@ -633,7 +633,7 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
             const warnings = [...archive.warnings];
             if (archive.foreign) {
               warnings.push(
-                `Empaquetado ejecutado como el dominio ${archive.execDomain.name}.`
+                `Packaging was run as domain ${archive.execDomain.name}.`
               );
             }
 
@@ -690,11 +690,11 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: false,
       idempotent: true,
-      summarize: (args) => `Crear el directorio ${textArg(args, "path")}`
+      summarize: (args) => `Create directory ${textArg(args, "path")}`
     },
     {
-      title: "Crear un directorio remoto",
-      description: "Crea un directorio absoluto en Plesk.",
+      title: "Create a remote directory",
+      description: "Creates an absolute directory in Plesk.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -721,11 +721,11 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Mover ${textArg(args, "from")} a ${textArg(args, "to")}`
+        `Move ${textArg(args, "from")} to ${textArg(args, "to")}`
     },
     {
-      title: "Mover o renombrar",
-      description: "Mueve un fichero o directorio remoto.",
+      title: "Move or rename",
+      description: "Moves a remote file or directory.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -751,11 +751,11 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Copiar ${textArg(args, "from")} a ${textArg(args, "to")}`
+        `Copy ${textArg(args, "from")} to ${textArg(args, "to")}`
     },
     {
-      title: "Copiar",
-      description: "Copia un fichero o directorio remoto.",
+      title: "Copy",
+      description: "Copies a remote file or directory.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -781,11 +781,11 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Borrar ${textArg(args, "path")}${args.recursive === true ? " (recursivo)" : ""}`
+        `Delete ${textArg(args, "path")}${args.recursive === true ? " (recursive)" : ""}`
     },
     {
-      title: "Borrar",
-      description: "Borra un fichero o directorio remoto.",
+      title: "Delete",
+      description: "Deletes a remote file or directory.",
       inputSchema: {
         server: serverField,
         domain: domainField,
@@ -808,11 +808,11 @@ export function registerFileTools(registrar: ToolRegistrar, ctx: ToolContext): v
       safety: "write",
       destructive: true,
       summarize: (args) =>
-        `Cambiar permisos de ${textArg(args, "path")} a ${textArg(args, "mode")}`
+        `Change permissions of ${textArg(args, "path")} to ${textArg(args, "mode")}`
     },
     {
-      title: "Cambiar permisos",
-      description: "Cambia permisos de un fichero o directorio remoto (Linux).",
+      title: "Change permissions",
+      description: "Changes permissions of a remote file or directory (Linux).",
       inputSchema: {
         server: serverField,
         domain: domainField,

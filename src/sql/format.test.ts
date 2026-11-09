@@ -9,7 +9,7 @@ import {
 } from "./format.js";
 
 describe("parseMysqlTsv", () => {
-  it("parsea cabecera, filas y escapes de mysql --batch --raw", () => {
+  it("parses header, rows and escapes from mysql --batch --raw", () => {
     const stdout = [
       "id\tname\tnote",
       "1\tAlice\tline1\\nline2",
@@ -28,11 +28,11 @@ describe("parseMysqlTsv", () => {
     ]);
   });
 
-  it("devuelve vacío si no hay salida", () => {
+  it("returns empty when there is no output", () => {
     expect(parseMysqlTsv("")).toEqual({ columns: [], rows: [] });
   });
 
-  it("tolera finales de línea CRLF", () => {
+  it("tolerates CRLF line endings", () => {
     const parsed = parseMysqlTsv("a\tb\r\n1\t2\r\n");
     expect(parsed.rows).toEqual([{ a: "1", b: "2" }]);
   });
@@ -47,7 +47,7 @@ describe("filterByLike", () => {
     "userXlogs"
   ];
 
-  it("aplica % sin distinguir mayúsculas", () => {
+  it("applies % case-insensitively", () => {
     expect(filterByLike(values, "user%")).toEqual([
       "users",
       "user_logs",
@@ -56,42 +56,42 @@ describe("filterByLike", () => {
     ]);
   });
 
-  it("aplica _ como un carácter", () => {
+  it("applies _ as a single character", () => {
     expect(filterByLike(values, "user_")).toEqual(["users"]);
     expect(filterByLike(["ab", "abc", "abcd"], "ab_")).toEqual(["abc"]);
     expect(filterByLike(["ab", "abc", "abcd"], "ab__")).toEqual(["abcd"]);
   });
 
-  it("permite escapar comodines con backslash", () => {
+  it("allows escaping wildcards with a backslash", () => {
     expect(filterByLike(values, "user\\_logs")).toEqual(["user_logs"]);
     expect(filterByLike(values, "user\\%logs")).toEqual([]);
   });
 
-  it("devuelve todo sin patrón", () => {
+  it("returns everything without a pattern", () => {
     expect(filterByLike(values)).toEqual(values);
     expect(filterByLike(values, "")).toEqual(values);
   });
 });
 
-describe("cursores y paginación", () => {
-  it("codifica y decodifica el offset", () => {
+describe("cursors and pagination", () => {
+  it("encodes and decodes the offset", () => {
     expect(decodeCursor(encodeCursor(0))).toBe(0);
     expect(decodeCursor(encodeCursor(42))).toBe(42);
     expect(decodeCursor(undefined)).toBe(0);
     expect(decodeCursor("")).toBe(0);
   });
 
-  it("rechaza cursores inválidos", () => {
+  it("rejects invalid cursors", () => {
     try {
-      decodeCursor("esto-no-es-un-cursor");
-      throw new Error("debería haber lanzado");
+      decodeCursor("this-is-not-a-cursor");
+      throw new Error("should have thrown");
     } catch (error) {
       expect(error).toBeInstanceOf(AppError);
       expect((error as AppError).code).toBe("SQL_CURSOR_INVALID");
     }
   });
 
-  it("pagina por cursor y marca truncamiento", () => {
+  it("paginates by cursor and flags truncation", () => {
     const items = [1, 2, 3, 4, 5];
 
     const first = paginate(items, 2);
@@ -108,7 +108,7 @@ describe("cursores y paginación", () => {
     expect(third.truncated).toBe(false);
   });
 
-  it("devuelve vacío si el cursor supera la lista", () => {
+  it("returns empty if the cursor is past the end of the list", () => {
     const page = paginate([1, 2], 2, encodeCursor(10));
     expect(page.items).toEqual([]);
     expect(page.nextCursor).toBeNull();

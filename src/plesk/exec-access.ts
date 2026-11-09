@@ -7,22 +7,22 @@ import {
   type PleskExecResult
 } from "./client.js";
 
-/** Timeout por sondeo de shell (como el dashboard: 8 s). */
+/** Timeout per shell probe (like the dashboard: 8 s). */
 const PROBE_TIMEOUT_MS = 8_000;
 const DEFAULT_MAX_CANDIDATES = 25;
 const CACHE_TTL_MS = 5 * 60_000;
 
 export type ExecNeed = "read" | "write";
 
-/** Acceso shell resuelto para operar sobre una ruta de la suscripción destino. */
+/** Resolved shell access for operating on a path in the target subscription. */
 export interface ExecAccess {
-  /** Dominio configurado (dueño de los ficheros y de la API fs). */
+  /** Configured domain (owner of the files and of the fs API). */
   target: PleskDomain;
-  /** Dominio que ejecuta los comandos (puede ser distinto). */
+  /** Domain that runs the commands (may be different). */
   domain: PleskDomain;
-  /** Raíz real de la suscripción destino. */
+  /** Real root of the target subscription. */
   home: string;
-  /** true si el shell pertenece a otro dominio/suscripción. */
+  /** true if the shell belongs to another domain/subscription. */
   foreign: boolean;
   exec(
     command: string[],
@@ -32,7 +32,7 @@ export interface ExecAccess {
 }
 
 export interface ExecAccessOptions {
-  /** Ruta remota relativa a la suscripción destino (p. ej. `/httpdocs`). */
+  /** Remote path relative to the target subscription (e.g. `/httpdocs`). */
   baseRest: string;
   need?: ExecNeed;
   probeTimeoutMs?: number;
@@ -55,12 +55,12 @@ const shellStatusCache = new WeakMap<PleskClient, Map<number, ShellStatus>>();
 const commandExecutionDisabled = new WeakMap<PleskClient, boolean>();
 
 /**
- * Busca un shell utilizable para leer/escribir una ruta del dominio destino.
+ * Finds a usable shell to read/write a path in the target domain.
  *
- * Orden de candidatos:
- * 1. Dominio seleccionado por la tool (caso normal).
- * 2. Dominios de la misma suscripción (addon/subdominios: mismo usuario).
- * 3. Resto de dominios con hosting físico.
+ * Candidate order:
+ * 1. Domain selected by the tool (the normal case).
+ * 2. Domains in the same subscription (addon/subdomains: same user).
+ * 3. Remaining domains with physical hosting.
  */
 export async function resolveExecAccess(
   client: PleskClient,
@@ -71,8 +71,8 @@ export async function resolveExecAccess(
   if (!home) {
     throw new AppError(
       "EXEC_PATH_MAPPING_FAILED",
-      `No se pudo determinar la raíz real del dominio ${target.name}`,
-      { hint: "Revisa www_root del dominio en Plesk." }
+      `Could not determine the real root of domain ${target.name}`,
+      { hint: "Check the domain's www_root in Plesk." }
     );
   }
 
@@ -111,18 +111,18 @@ export async function resolveExecAccess(
 
   throw new AppError(
     "EXEC_UNAVAILABLE",
-    "Ningún dominio del servidor permite ejecutar comandos para esta ruta",
+    "No domain on the server allows running commands for this path",
     {
       hint:
         (commandExecutionDisabled.get(client)
-          ? "La ejecución de comandos está deshabilitada en la extensión REST de Plesk. "
+          ? "Command execution is disabled in the Plesk REST extension. "
           : "") +
-        `Se probaron ${probed.length} dominio(s). Activa el acceso SSH (shell /bin/bash) en alguna suscripción o usa el modo walk.`
+        `Probed ${probed.length} domain(s). Enable SSH access (shell /bin/bash) on a subscription or use walk mode.`
     }
   );
 }
 
-/** Busca un dominio con shell, sin comprobar rutas concretas (para doctor). */
+/** Finds a domain with a shell without checking specific paths (for doctor). */
 export async function discoverShellDomain(
   client: PleskClient,
   options: { probeTimeoutMs?: number; maxCandidates?: number } = {}
@@ -142,16 +142,16 @@ export async function discoverShellDomain(
   return null;
 }
 
-/** Shell de cualquier dominio, sin depender de una suscripción concreta. */
+/** Shell from any domain, without depending on a specific subscription. */
 export interface ShellAccess {
   domain: PleskDomain;
   exec(command: string[], timeoutMs?: number | null): Promise<PleskExecResult>;
 }
 
 /**
- * Busca cualquier dominio con shell que además cumpla `require` (por ejemplo,
- * que tenga el cliente `mysql`). No comprueba rutas ni suscripciones: sirve
- * para tareas globales del servidor, como ejecutar SQL.
+ * Finds any domain with a shell that also satisfies `require` (for example,
+ * having the `mysql` client). It does not check paths or subscriptions: it is
+ * meant for global server tasks, such as running SQL.
  */
 export async function findShellDomain(
   client: PleskClient,
@@ -184,7 +184,7 @@ export async function findShellDomain(
   return null;
 }
 
-/** Invalida la caché de un cliente (tras un fallo de shell inesperado). */
+/** Invalidates a client's cache (after an unexpected shell failure). */
 export function clearExecAccessCache(client: PleskClient): void {
   accessCache.delete(client);
   shellStatusCache.delete(client);
@@ -237,14 +237,14 @@ async function hasShell(
         commandExecutionDisabled.set(client, true);
         throw new AppError(
           "EXEC_UNAVAILABLE",
-          "La ejecución de comandos está deshabilitada en Plesk",
+          "Command execution is disabled in Plesk",
           {
             hint:
-              "Actívala en la configuración de la extensión REST (domainCommandExecutionEnabled) o usa el modo walk."
+              "Enable it in the REST extension settings (domainCommandExecutionEnabled) or use walk mode."
           }
         );
       }
-      // 403/404 por dominio sin shell, sin hosting o borrado: se prueba el siguiente.
+      // 403/404 for a domain without a shell, without hosting, or deleted: try the next one.
       if (error.status === 401) throw error;
       statuses.set(domain.id, {
         hasShell: false,
@@ -307,8 +307,8 @@ async function findDomain(
 }
 
 /**
- * Lista dominios sin romper la operación si la API key no puede listarlos
- * (por ejemplo, una key de cliente restringida). Los errores de red sí suben.
+ * Lists domains without breaking the operation if the API key cannot list them
+ * (for example, a restricted customer key). Network errors do propagate.
  */
 async function listDomainsSafe(client: PleskClient): Promise<PleskDomain[]> {
   try {

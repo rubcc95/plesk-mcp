@@ -10,10 +10,10 @@ export interface NodeUpdateOptions {
 }
 
 /**
- * Adaptador de `plesk ext nodejs`.
+ * Adapter for `plesk ext nodejs`.
  *
- * Los nombres exactos de los flags se validan en la fase 0 contra
- * `plesk ext nodejs --help` y `GET /cli/extension/ref`.
+ * The exact flag names are validated in phase 0 against
+ * `plesk ext nodejs --help` and `GET /cli/extension/ref`.
  */
 export class NodeAdapter {
   constructor(private readonly client: PleskClient) {}

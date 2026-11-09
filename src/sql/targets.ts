@@ -84,8 +84,8 @@ export interface SqlTargetRef {
 const targetCache = new WeakMap<ToolContext, Map<string, SqlTarget>>();
 
 /**
- * Valida el selector y comprueba que el destino existe, sin materializar
- * credenciales ni abrir conexiones. Se usa antes de aplicar la política.
+ * Validates the selector and checks that the target exists, without
+ * materializing credentials or opening connections. Used before applying the policy.
  */
 export function resolveSqlTargetRef(
   ctx: ToolContext,
@@ -97,11 +97,11 @@ export function resolveSqlTargetRef(
   if (!hasServer && !hasPc) {
     throw new AppError(
       "TARGET_REQUIRED",
-      "Debes indicar `server` o `pc` para elegir el destino SQL",
+      "You must specify `server` or `pc` to choose the SQL target",
       {
-        hint: `Servidores: ${ctx.loaded.servers.map((server) => server.name).join(", ") || "(ninguno)"}. Bases locales: ${
+        hint: `Servers: ${ctx.loaded.servers.map((server) => server.name).join(", ") || "(none)"}. Local databases: ${
           ctx.loaded.localDatabases.map((database) => database.name).join(", ") ||
-          "(ninguna)"
+          "(none)"
         }.`
       }
     );
@@ -110,17 +110,17 @@ export function resolveSqlTargetRef(
   if (hasServer && hasPc) {
     throw new AppError(
       "TARGET_CONFLICT",
-      "Indica solo uno de `server` o `pc`, no ambos",
-      { hint: "`server` apunta a un Plesk y `pc` a una base de datos local." }
+      "Specify only one of `server` or `pc`, not both",
+      { hint: "`server` points to a Plesk server and `pc` to a local database." }
     );
   }
 
   if (hasServer) {
     const name = String(args.server);
     if (!ctx.loaded.servers.some((server) => server.name === name)) {
-      throw new AppError("SERVER_NOT_FOUND", `No existe el servidor "${name}"`, {
-        hint: `Servidores disponibles: ${
-          ctx.loaded.servers.map((server) => server.name).join(", ") || "(ninguno)"
+      throw new AppError("SERVER_NOT_FOUND", `Server "${name}" does not exist`, {
+        hint: `Available servers: ${
+          ctx.loaded.servers.map((server) => server.name).join(", ") || "(none)"
         }`
       });
     }
@@ -129,10 +129,10 @@ export function resolveSqlTargetRef(
 
   const name = String(args.pc);
   if (!ctx.loaded.localDatabases.some((database) => database.name === name)) {
-    throw new AppError("PC_NOT_FOUND", `No existe la base de datos local "${name}"`, {
-      hint: `Bases locales disponibles: ${
+    throw new AppError("PC_NOT_FOUND", `Local database "${name}" does not exist`, {
+      hint: `Available local databases: ${
         ctx.loaded.localDatabases.map((database) => database.name).join(", ") ||
-        "(ninguna)"
+        "(none)"
       }`
     });
   }
@@ -161,7 +161,7 @@ export function resolveSqlTarget(
     (database) => database.name === ref.name
   );
   if (!entry) {
-    throw new AppError("PC_NOT_FOUND", `No existe la base de datos local "${ref.name}"`);
+    throw new AppError("PC_NOT_FOUND", `Local database "${ref.name}" does not exist`);
   }
 
   const config = materializeLocalDatabase(entry);

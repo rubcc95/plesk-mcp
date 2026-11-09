@@ -24,7 +24,7 @@ export function fromError(error: unknown): ToolResult<never> {
   return fail(appError.code, appError.message, appError.hint);
 }
 
-/** Convierte el resultado de una tool al formato que espera MCP. */
+/** Converts a tool result to the format MCP expects. */
 export function toCallToolResult(result: ToolResult<unknown>): CallToolResult {
   return {
     content: [
@@ -37,7 +37,7 @@ export function toCallToolResult(result: ToolResult<unknown>): CallToolResult {
   };
 }
 
-/** Ejecuta una tool capturando errores y devolviendo siempre JSON estable. */
+/** Runs a tool, capturing errors and always returning stable JSON. */
 export async function runTool<T>(fn: () => Promise<T>): Promise<CallToolResult> {
   try {
     return toCallToolResult(ok(await fn()));

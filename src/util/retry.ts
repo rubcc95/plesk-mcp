@@ -7,10 +7,10 @@ const RETRYABLE_CODES = new Set([
   "PLESK_EMPTY_RESPONSE"
 ]);
 
-/** Códigos HTTP que no se arreglan reintentando. */
+/** HTTP codes that will not be fixed by retrying. */
 const PERMANENT_HTTP_STATUS = new Set([400, 401, 403, 404, 405, 409, 422]);
 
-/** Errores de red que no dependen de una caída temporal. */
+/** Network errors that do not depend on a temporary outage. */
 const PERMANENT_NETWORK_CODES = new Set([
   "ENOTFOUND",
   "ENOSPC",
@@ -28,7 +28,7 @@ const PERMANENT_NETWORK_CODES = new Set([
   "ERR_TLS_CERT_ALTNAME_INVALID"
 ]);
 
-/** Solo reintenta errores transitorios: red, timeout, 5xx y 429. */
+/** Retries only transient errors: network, timeout, 5xx, and 429. */
 export function isRetryable(error: unknown): boolean {
   if (error instanceof PleskHttpError) {
     if (PERMANENT_HTTP_STATUS.has(error.status)) return false;
@@ -60,8 +60,8 @@ function hasPermanentCause(error: unknown): boolean {
 }
 
 /**
- * Ejecuta `fn` reintentando para siempre los errores transitorios.
- * Los errores permanentes (auth, datos, DNS, TLS) se propagan de inmediato.
+ * Runs `fn`, retrying transient errors forever.
+ * Permanent errors (auth, data, DNS, TLS) propagate immediately.
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,

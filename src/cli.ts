@@ -20,15 +20,15 @@ const EMPTY_REGISTRY = { servers: [], localDatabases: [] };
 
 const program = new Command()
   .name("plesk-project")
-  .description("Prepara y comprueba la configuración de plesk-mcp")
+  .description("Prepares and checks the plesk-mcp configuration")
   .version(VERSION)
-  .option("--global-config <path>", "ruta alternativa al config global");
+  .option("--global-config <path>", "alternative path to the global config");
 
 program
   .command("init")
-  .description("Crea el config local o el global")
-  .option("-f, --force", "sobrescribe el archivo si ya existe")
-  .option("-g, --global", "crea el config global")
+  .description("Creates the local or global config")
+  .option("-f, --force", "overwrites the file if it already exists")
+  .option("-g, --global", "creates the global config")
   .action(async (options: { force?: boolean; global?: boolean }) => {
     if (options.global) {
       await initFile(resolveGlobalConfigPath(), options.force ?? false, true);
@@ -39,9 +39,9 @@ program
 
 program
   .command("doctor")
-  .description("Comprueba autenticación, dominio, ficheros, exec y tar")
-  .option("-s, --server <name>", "nombre del servidor a comprobar")
-  .option("-d, --domain <name>", "dominio a comprobar")
+  .description("Checks authentication, domain, files, exec, and tar")
+  .option("-s, --server <name>", "name of the server to check")
+  .option("-d, --domain <name>", "domain to check")
   .action(async (options: { server?: string; domain?: string }) => {
     await doctor(
       program.opts().globalConfig as string | undefined,
@@ -52,7 +52,7 @@ program
 
 program
   .command("servers")
-  .description("Lista los servidores Plesk y las bases de datos locales")
+  .description("Lists the Plesk servers and local databases")
   .action(async () => {
     const loaded = await loadRegistry(program.opts().globalConfig as string | undefined);
     printSummary(loaded);
@@ -60,7 +60,7 @@ program
 
 program
   .command("project-info")
-  .description("Muestra la configuración sin secretos")
+  .description("Shows the configuration without secrets")
   .action(async () => {
     const loaded = await loadRegistry(program.opts().globalConfig as string | undefined);
     printSummary(loaded);
@@ -69,7 +69,7 @@ program
 program.parseAsync(process.argv).catch((error) => {
   const appError = asAppError(error);
   console.error(`${appError.code}: ${appError.message}`);
-  if (appError.hint) console.error(`Pista: ${appError.hint}`);
+  if (appError.hint) console.error(`Hint: ${appError.hint}`);
   process.exitCode = 1;
 });
 
@@ -82,9 +82,9 @@ async function initFile(filePath: string, force: boolean, global: boolean): Prom
 
   if (!global) await ensureGitignore(process.cwd());
 
-  console.log(`${global ? "Config global" : "Config local"}: ${filePath}`);
+  console.log(`${global ? "Global config" : "Local config"}: ${filePath}`);
   console.log("");
-  console.log("Añade servidores Plesk dentro de `servers`:");
+  console.log("Add Plesk servers inside `servers`:");
   console.log(
     JSON.stringify(
       {
@@ -92,7 +92,7 @@ async function initFile(filePath: string, force: boolean, global: boolean): Prom
         servers: [
           {
             name: "prod-mundopc",
-            url: "https://plesk.ejemplo.com:8443",
+            url: "https://plesk.example.com:8443",
             auth: {
               mode: "apiKey",
               apiKey: "env:PLESK_API_KEY"
@@ -107,7 +107,7 @@ async function initFile(filePath: string, force: boolean, global: boolean): Prom
     )
   );
   console.log("");
-  console.log("Y bases de datos locales dentro de `localDatabases`:");
+  console.log("And local databases inside `localDatabases`:");
   console.log(
     JSON.stringify(
       {
@@ -138,7 +138,7 @@ async function doctor(
   const selected = serverName ?? loaded.defaultServer;
   const entry = loaded.servers.find((server) => server.name === selected);
   if (!entry || !selected) {
-    console.error(`No existe el servidor "${selected ?? "(ninguno)"}"`);
+    console.error(`Server "${selected ?? "(none)"}" does not exist`);
     process.exitCode = 1;
     return;
   }
@@ -158,7 +158,7 @@ async function doctor(
     {
       name: "config",
       ok: true,
-      message: `servidor: ${entry.name} (${entry.source}) | dominio: ${domain.name} | defecto: ${loaded.defaultServer ?? "(ninguno)"} (${loaded.defaultSource}) | db: ${entry.dbUser ? "sí" : "no"}`
+      message: `server: ${entry.name} (${entry.source}) | domain: ${domain.name} | default: ${loaded.defaultServer ?? "(none)"} (${loaded.defaultSource}) | db: ${entry.dbUser ? "yes" : "no"}`
     }
   ];
 
@@ -174,14 +174,14 @@ async function doctor(
 
   await addCheck(checks, "files", async () => {
     await client.fsList("/");
-    return "fs/list funciona en /";
+    return "fs/list works on /";
   });
 
   await addCheck(checks, "db", async () => {
     if (!entry.dbUser || !entry.dbPass) {
-      throw new Error("El servidor no tiene dbUser/dbPass configurados");
+      throw new Error("The server does not have dbUser/dbPass configured");
     }
-    return "credenciales MySQL configuradas (se validan al ejecutar SQL)";
+    return "MySQL credentials configured (validated when SQL is executed)";
   });
 
   let shell: ExecAccess | null = null;
@@ -189,26 +189,26 @@ async function doctor(
     shell = await discoverShellDomain(client);
     if (!shell) {
       throw new Error(
-        "Ningún dominio tiene shell. Activa el acceso SSH (shell /bin/bash) en alguna suscripción."
+        "No domain has a shell. Enable SSH access (shell /bin/bash) on some subscription."
       );
     }
     const result = await shell.exec(["whoami"]);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.message || `code ${result.code}`);
     }
-    const user = (result.stdout ?? "").trim() || "whoami sin salida";
-    return `${user} (dominio ${shell.domain.name}${shell.foreign ? ", alternativo" : ""})`;
+    const user = (result.stdout ?? "").trim() || "whoami with no output";
+    return `${user} (domain ${shell.domain.name}${shell.foreign ? ", alternate" : ""})`;
   });
 
   await addCheck(checks, "tar", async () => {
     if (!shell) {
-      throw new Error("No hay shell disponible para comprobar tar");
+      throw new Error("No shell available to check tar");
     }
     const result = await shell.exec(["tar", "--version"]);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.message || `code ${result.code}`);
     }
-    return (result.stdout ?? "").split(/\r?\n/)[0]?.trim() || "tar disponible";
+    return (result.stdout ?? "").split(/\r?\n/)[0]?.trim() || "tar available";
   });
 
   await addCheck(checks, "execPaths", async () => {
@@ -216,12 +216,12 @@ async function doctor(
       baseRest: "/",
       need: "read"
     });
-    return `${access.domain.name}${access.foreign ? " (alternativo)" : ""} accede a ${access.home}`;
+    return `${access.domain.name}${access.foreign ? " (alternate)" : ""} accesses ${access.home}`;
   });
 
   for (const check of checks) {
     console.log(`${check.ok ? "OK  " : "FAIL"} ${check.name.padEnd(8)} ${check.message}`);
-    if (!check.ok && check.hint) console.log(`     Pista: ${check.hint}`);
+    if (!check.ok && check.hint) console.log(`     Hint: ${check.hint}`);
   }
 
   const healthy = checks.every((check) => check.ok);
@@ -248,19 +248,19 @@ async function addCheck(
 
 function printSummary(loaded: LoadedRegistry): void {
   const summary = registrySummary(loaded);
-  console.log(`Global:  ${summary.paths.globalConfig}${summary.paths.globalConfigFound ? "" : " (no existe)"}`);
-  console.log(`Local:   ${summary.paths.localConfig}${summary.paths.localConfigFound ? "" : " (no existe)"}`);
+  console.log(`Global:  ${summary.paths.globalConfig}${summary.paths.globalConfigFound ? "" : " (does not exist)"}`);
+  console.log(`Local:   ${summary.paths.localConfig}${summary.paths.localConfigFound ? "" : " (does not exist)"}`);
   console.log(
-    `Defecto: ${summary.defaultServer ?? "(ninguno)"} (${summary.defaultSource})`
+    `Default: ${summary.defaultServer ?? "(none)"} (${summary.defaultSource})`
   );
-  console.log("Servidores:");
+  console.log("Servers:");
   for (const server of summary.servers) {
     console.log(
-      `  ${server.default ? "*" : " "} ${server.name}  ${server.url}  db:${server.hasDb ? "sí" : "no"}  [${server.source}]`
+      `  ${server.default ? "*" : " "} ${server.name}  ${server.url}  db:${server.hasDb ? "yes" : "no"}  [${server.source}]`
     );
   }
   if (summary.localDatabases.length > 0) {
-    console.log("Bases de datos locales:");
+    console.log("Local databases:");
     for (const database of summary.localDatabases) {
       console.log(
         `    ${database.name}  ${database.host}:${database.port}  [${database.source}]`

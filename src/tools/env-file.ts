@@ -9,8 +9,8 @@ export interface EnvEntry {
 const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
- * Parsea un archivo `.env` sin exponer su contenido.
- * Soporta `KEY=value`, comentarios `#`, `export KEY=value` y comillas simples o dobles.
+ * Parses a `.env` file without exposing its contents.
+ * Supports `KEY=value`, `#` comments, `export KEY=value` and single or double quotes.
  */
 export function parseEnvFile(content: string): EnvEntry[] {
   const entries: EnvEntry[] = [];
@@ -37,8 +37,8 @@ export function parseEnvFile(content: string): EnvEntry[] {
     if (previousLine !== undefined) {
       throw new AppError(
         "ENV_FILE_DUPLICATE_KEY",
-        `La línea ${line} repite una variable ya definida en la línea ${previousLine}`,
-        { hint: "Cada variable debe aparecer una sola vez en el archivo." }
+        `Line ${line} repeats a variable already defined on line ${previousLine}`,
+        { hint: "Each variable must appear only once in the file." }
       );
     }
 
@@ -49,8 +49,8 @@ export function parseEnvFile(content: string): EnvEntry[] {
   if (entries.length === 0) {
     throw new AppError(
       "ENV_FILE_EMPTY",
-      "El archivo .env no contiene variables de entorno",
-      { hint: "Formato esperado: KEY=value" }
+      "The .env file does not contain any environment variables",
+      { hint: "Expected format: KEY=value" }
     );
   }
 
@@ -111,7 +111,7 @@ function assertOnlyCommentAfter(rest: string, line: number): void {
 function invalidLine(line: number): AppError {
   return new AppError(
     "ENV_FILE_INVALID",
-    `La línea ${line} del archivo .env no es válida`,
-    { hint: "Formato esperado: KEY=value. Los comentarios empiezan por #." }
+    `Line ${line} of the .env file is not valid`,
+    { hint: "Expected format: KEY=value. Comments start with #." }
   );
 }

@@ -1,6 +1,6 @@
 /**
- * Ejecuta `fn` sobre todos los elementos con un máximo de workers en paralelo.
- * Conserva el orden de los resultados.
+ * Runs `fn` over all items with a maximum number of parallel workers.
+ * Preserves the order of the results.
  */
 export async function mapPool<T, R>(
   items: T[],

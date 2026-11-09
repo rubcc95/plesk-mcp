@@ -23,7 +23,7 @@ async function createPeer(
     {
       safety: "write",
       destructive: true,
-      summarize: () => "Cambiar algo en el servidor"
+      summarize: () => "Change something on the server"
     },
     {
       title: "Mutate",
@@ -86,7 +86,7 @@ function textOf(result: Awaited<ReturnType<Client["callTool"]>>): string {
 }
 
 describe("resolveAccessMode", () => {
-  it("usa confirm por defecto y acepta alias", () => {
+  it("uses confirm by default and accepts aliases", () => {
     expect(resolveAccessMode(undefined)).toBe("confirm");
     expect(resolveAccessMode("")).toBe("confirm");
     expect(resolveAccessMode("write")).toBe("confirm");
@@ -94,17 +94,17 @@ describe("resolveAccessMode", () => {
     expect(resolveAccessMode("client")).toBe("full");
   });
 
-  it("un valor inválido cae en confirm", () => {
-    expect(resolveAccessMode("otra-cosa")).toBe("confirm");
+  it("falls back to confirm on an invalid value", () => {
+    expect(resolveAccessMode("something-else")).toBe("confirm");
   });
 });
 
 describe("createToolRegistrar", () => {
-  it("en full ejecuta sin elicitation", async () => {
+  it("runs without elicitation in full mode", async () => {
     const peer = await createPeer("full");
     const result = await peer.client.callTool({
       name: "mutate",
-      arguments: { value: "hecho" }
+      arguments: { value: "done" }
     });
 
     expect(result.isError).toBeFalsy();
@@ -112,14 +112,14 @@ describe("createToolRegistrar", () => {
     expect(peer.elicitations()).toBe(0);
   });
 
-  it("en confirm exige elicitation si el cliente la soporta", async () => {
+  it("requires elicitation in confirm mode if the client supports it", async () => {
     const peer = await createPeer("confirm", {
       action: "accept",
       content: { confirm: true }
     });
     const result = await peer.client.callTool({
       name: "mutate",
-      arguments: { value: "hecho" }
+      arguments: { value: "done" }
     });
 
     expect(result.isError).toBeFalsy();
@@ -127,7 +127,7 @@ describe("createToolRegistrar", () => {
     expect(peer.elicitations()).toBe(1);
   });
 
-  it("no ejecuta si el usuario no marca la casilla", async () => {
+  it("does not run if the user does not check the box", async () => {
     const peer = await createPeer("confirm", {
       action: "accept",
       content: { confirm: false }
@@ -142,7 +142,7 @@ describe("createToolRegistrar", () => {
     expect(peer.mutations()).toBe(0);
   });
 
-  it("no ejecuta si el cliente sin elicitation llama a una escritura", async () => {
+  it("does not run if a client without elicitation calls a write", async () => {
     const peer = await createPeer("confirm");
     const result = await peer.client.callTool({
       name: "mutate",
@@ -154,7 +154,7 @@ describe("createToolRegistrar", () => {
     expect(peer.mutations()).toBe(0);
   });
 
-  it("dry_run no pide confirmación", async () => {
+  it("dry_run does not ask for confirmation", async () => {
     const peer = await createPeer("confirm", {
       action: "accept",
       content: { confirm: true }
@@ -169,7 +169,7 @@ describe("createToolRegistrar", () => {
     expect(peer.mutations()).toBe(1);
   });
 
-  it("publica annotations en escrituras", async () => {
+  it("publishes annotations for writes", async () => {
     const peer = await createPeer("confirm");
     const { tools } = await peer.client.listTools();
 

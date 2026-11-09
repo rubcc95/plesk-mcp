@@ -3,9 +3,9 @@ import path from "node:path";
 import { AppError } from "../util/errors.js";
 
 /**
- * Normaliza una ruta remota de Plesk.
- * Debe ser absoluta dentro de la suscripción (`/httpdocs/...`).
- * Rechaza `..` y bytes nulos.
+ * Normalizes a remote Plesk path.
+ * It must be absolute inside the subscription (`/httpdocs/...`).
+ * It rejects `..` and null bytes.
  */
 export function resolveRemotePath(input: string): string {
   const raw = input.replace(/\\/g, "/").replace(/\0/g, "");
@@ -13,8 +13,8 @@ export function resolveRemotePath(input: string): string {
   if (!raw.startsWith("/")) {
     throw new AppError(
       "REMOTE_PATH_NOT_ABSOLUTE",
-      `La ruta remota debe ser absoluta: ${input}`,
-      { hint: "Ejemplo: /httpdocs/index.php" }
+      `The remote path must be absolute: ${input}`,
+      { hint: "Example: /httpdocs/index.php" }
     );
   }
 
@@ -22,21 +22,21 @@ export function resolveRemotePath(input: string): string {
   if (segments.some((segment) => segment === "..")) {
     throw new AppError(
       "REMOTE_PATH_TRAVERSAL",
-      `La ruta remota no puede contener '..': ${input}`
+      `The remote path cannot contain '..': ${input}`
     );
   }
 
   return path.posix.normalize(`/${segments.join("/")}`);
 }
 
-/** Une una ruta remota base con una ruta relativa, sin permitir escapes. */
+/** Joins a base remote path with a relative path, disallowing escapes. */
 export function joinRemotePath(base: string, relative: string): string {
   return resolveRemotePath(
     path.posix.join(resolveRemotePath(base), relative.replace(/\\/g, "/"))
   );
 }
 
-/** Resuelve una ruta local contra la raíz del proyecto y rechaza escapes. */
+/** Resolves a local path against the project root and rejects escapes. */
 export function resolveLocalPath(projectRoot: string, input: string): string {
   const root = path.resolve(projectRoot);
   const absolute = path.isAbsolute(input)
@@ -46,15 +46,15 @@ export function resolveLocalPath(projectRoot: string, input: string): string {
   if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) {
     throw new AppError(
       "LOCAL_PATH_OUTSIDE_PROJECT",
-      `La ruta local ${input} queda fuera del proyecto`,
-      { hint: `Las rutas locales deben estar dentro de ${root}.` }
+      `The local path ${input} falls outside the project`,
+      { hint: `Local paths must be inside ${root}.` }
     );
   }
 
   return absolute;
 }
 
-/** Comprueba que existe y, si es un enlace, que su destino sigue dentro del proyecto. */
+/** Checks that it exists and, if it is a link, that its target is still inside the project. */
 export async function assertLocalFile(
   projectRoot: string,
   input: string
@@ -62,10 +62,10 @@ export async function assertLocalFile(
   const absolute = resolveLocalPath(projectRoot, input);
   const info = await stat(absolute).catch(() => null);
   if (!info) {
-    throw new AppError("LOCAL_NOT_FOUND", `No existe el archivo local: ${absolute}`);
+    throw new AppError("LOCAL_NOT_FOUND", `The local file does not exist: ${absolute}`);
   }
   if (!info.isFile()) {
-    throw new AppError("LOCAL_NOT_FILE", `La ruta local no es un archivo: ${absolute}`);
+    throw new AppError("LOCAL_NOT_FILE", `The local path is not a file: ${absolute}`);
   }
 
   const real = await realpath(absolute);
@@ -73,8 +73,8 @@ export async function assertLocalFile(
   if (real !== rootReal && !real.startsWith(`${rootReal}${path.sep}`)) {
     throw new AppError(
       "LOCAL_PATH_OUTSIDE_PROJECT",
-      `El archivo real ${real} queda fuera del proyecto`,
-      { hint: "Revisa enlaces simbólicos." }
+      `The real file ${real} falls outside the project`,
+      { hint: "Check for symbolic links." }
     );
   }
 

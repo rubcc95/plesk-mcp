@@ -16,15 +16,15 @@ import {
 } from "./archive.js";
 
 describe("findArchiveBase", () => {
-  it("usa el padre de un directorio", () => {
+  it("uses the parent of a directory", () => {
     expect(findArchiveBase(["/httpdocs/assets"])).toBe("/httpdocs");
   });
 
-  it("usa el padre de un fichero", () => {
+  it("uses the parent of a file", () => {
     expect(findArchiveBase(["/httpdocs/index.php"])).toBe("/httpdocs");
   });
 
-  it("calcula el ancestro común", () => {
+  it("computes the common ancestor", () => {
     expect(
       findArchiveBase(["/httpdocs/assets", "/httpdocs/index.php"])
     ).toBe("/httpdocs");
@@ -33,11 +33,11 @@ describe("findArchiveBase", () => {
 });
 
 describe("archiveEntries", () => {
-  it("conserva el nombre del directorio", () => {
+  it("keeps the directory name", () => {
     expect(archiveEntries(["/httpdocs/assets"], "/httpdocs")).toEqual(["assets"]);
   });
 
-  it("mezcla ficheros y directorios", () => {
+  it("mixes files and directories", () => {
     expect(
       archiveEntries(
         ["/httpdocs/assets", "/httpdocs/index.php"],
@@ -46,7 +46,7 @@ describe("archiveEntries", () => {
     ).toEqual(["assets", "index.php"]);
   });
 
-  it("elimina entradas contenidas en otra", () => {
+  it("removes entries contained in another", () => {
     expect(
       archiveEntries(["/httpdocs", "/httpdocs/assets"], "/")
     ).toEqual(["httpdocs"]);
@@ -54,7 +54,7 @@ describe("archiveEntries", () => {
 });
 
 describe("validateExcludePatterns", () => {
-  it("acepta patrones normales", () => {
+  it("accepts normal patterns", () => {
     expect(validateExcludePatterns(["node_modules", "*.log", ".git"])).toEqual([
       "node_modules",
       "*.log",
@@ -62,7 +62,7 @@ describe("validateExcludePatterns", () => {
     ]);
   });
 
-  it("rechaza espacios y metacaracteres de shell", () => {
+  it("rejects spaces and shell metacharacters", () => {
     expect(() => validateExcludePatterns(["foo bar"])).toThrow();
     expect(() => validateExcludePatterns(["foo;rm"])).toThrow();
     expect(() => validateExcludePatterns(["--checkpoint-action=exec"])).toThrow();
@@ -70,21 +70,21 @@ describe("validateExcludePatterns", () => {
 });
 
 describe("buildTarArgs", () => {
-  it("coloca las opciones antes del separador", () => {
+  it("places options before the separator", () => {
     expect(
       buildTarArgs({
         tarBinary: "tar",
-        archiveRealPath: "/home/dominio/.tmp/a.tar.gz",
-        baseRealPath: "/home/dominio/httpdocs",
+        archiveRealPath: "/home/domain/.tmp/a.tar.gz",
+        baseRealPath: "/home/domain/httpdocs",
         entries: ["assets", "index.php"],
         excludes: ["node_modules", "*.log"]
       })
     ).toEqual([
       "tar",
       "-czf",
-      "/home/dominio/.tmp/a.tar.gz",
+      "/home/domain/.tmp/a.tar.gz",
       "-C",
-      "/home/dominio/httpdocs",
+      "/home/domain/httpdocs",
       "--exclude=node_modules",
       "--exclude=*.log",
       "--",
@@ -95,7 +95,7 @@ describe("buildTarArgs", () => {
 });
 
 describe("toRealPath", () => {
-  it("antepone el home de la suscripción", () => {
+  it("prefixes the subscription home", () => {
     expect(toRealPath("/var/www/vhosts/example", "/httpdocs")).toBe(
       "/var/www/vhosts/example/httpdocs"
     );
@@ -107,7 +107,7 @@ describe("toRealPath", () => {
 });
 
 describe("resolveExecPaths", () => {
-  it("usa HOME cuando está disponible", async () => {
+  it("uses HOME when available", async () => {
     const client = {
       exec: async (command: string[]) => {
         if (command[0] === "printenv") {
@@ -126,7 +126,7 @@ describe("resolveExecPaths", () => {
     });
   });
 
-  it("cae a pwd si HOME no está disponible", async () => {
+  it("falls back to pwd if HOME is not available", async () => {
     const client = {
       exec: async (command: string[]) => {
         if (command[0] === "printenv") {
@@ -150,7 +150,7 @@ describe("resolveExecPaths", () => {
 });
 
 describe("isExecFallbackError", () => {
-  it("solo marca errores de exec/tar", () => {
+  it("only flags exec/tar errors", () => {
     expect(isExecFallbackError(new AppError("EXEC_UNAVAILABLE", "x"))).toBe(true);
     expect(isExecFallbackError(new AppError("TAR_UNAVAILABLE", "x"))).toBe(true);
     expect(isExecFallbackError(new AppError("TAR_FAILED", "x"))).toBe(false);
@@ -158,8 +158,8 @@ describe("isExecFallbackError", () => {
   });
 });
 
-describe("planArchive con shell ajeno", () => {
-  it("aloja el tar en el home del dominio que ejecuta", async () => {
+describe("planArchive with a foreign shell", () => {
+  it("hosts the tar in the home of the executing domain", async () => {
     const target: PleskDomain = {
       id: 1,
       name: "main.com",
@@ -210,28 +210,28 @@ describe("findUnsafeEntries", () => {
     extra: Partial<ArchiveEntryInfo> = {}
   ): ArchiveEntryInfo => ({ path: entryPath, type: "File", ...extra });
 
-  it("acepta rutas normales", () => {
+  it("accepts normal paths", () => {
     expect(findUnsafeEntries([entry("assets/app.js"), entry("index.php")])).toEqual(
       []
     );
   });
 
-  it("rechaza traversal y rutas absolutas", () => {
-    expect(findUnsafeEntries([entry("../secreto")])).toHaveLength(1);
+  it("rejects traversal and absolute paths", () => {
+    expect(findUnsafeEntries([entry("../secret")])).toHaveLength(1);
     expect(findUnsafeEntries([entry("/etc/passwd")])).toHaveLength(1);
-    expect(findUnsafeEntries([entry("assets/../../secreto")])).toHaveLength(1);
+    expect(findUnsafeEntries([entry("assets/../../secret")])).toHaveLength(1);
   });
 
-  it("rechaza nombres inválidos en Windows", () => {
+  it("rejects invalid Windows names", () => {
     expect(findUnsafeEntries([entry("assets/a:b.txt")])).toHaveLength(1);
     expect(findUnsafeEntries([entry("CON.txt")])).toHaveLength(1);
-    expect(findUnsafeEntries([entry("archivo.")])).toHaveLength(1);
+    expect(findUnsafeEntries([entry("archive.")])).toHaveLength(1);
   });
 
-  it("rechaza enlaces que escapan del destino", () => {
+  it("rejects links that escape the destination", () => {
     expect(
       findUnsafeEntries([
-        entry("assets/link", { linkpath: "../../fuera", type: "SymbolicLink" })
+        entry("assets/link", { linkpath: "../../outside", type: "SymbolicLink" })
       ])
     ).toHaveLength(1);
     expect(

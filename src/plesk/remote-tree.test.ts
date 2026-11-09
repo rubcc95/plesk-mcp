@@ -12,13 +12,13 @@ function fakeClient(tree: Record<string, unknown[]>): PleskClient {
   return {
     fsList: async (remote: string) => {
       if (!(remote in tree)) {
-        throw new Error(`No existe ${remote}`);
+        throw new Error(`Does not exist ${remote}`);
       }
       return tree[remote];
     },
     fsStat: async (remote: string) => {
       if (!(remote in tree)) {
-        throw new Error(`No existe ${remote}`);
+        throw new Error(`Does not exist ${remote}`);
       }
       return {
         name: remote.split("/").pop(),
@@ -32,14 +32,14 @@ function fakeClient(tree: Record<string, unknown[]>): PleskClient {
 }
 
 describe("parseEntries", () => {
-  it("acepta array, entries y data", () => {
+  it("accepts array, entries, and data", () => {
     const entry = { name: "a.txt", type: "file", size: 3 };
     expect(parseEntries([entry])).toHaveLength(1);
     expect(parseEntries({ entries: [entry] })).toHaveLength(1);
     expect(parseEntries({ data: [entry] })).toHaveLength(1);
   });
 
-  it("normaliza tipos y tamaños", () => {
+  it("normalizes types and sizes", () => {
     const [dir, file, link] = parseEntries([
       { name: "assets", type: "directory" },
       { name: "a.txt", type: "file", size: "12" },
@@ -70,7 +70,7 @@ describe("walkRemote", () => {
     ]
   };
 
-  it("recorre, excluye y suma tamaños", async () => {
+  it("walks, excludes, and sums sizes", async () => {
     const result = await walkRemote(fakeClient(tree), ["/httpdocs"], {
       base: "/",
       exclude: ["node_modules"]
@@ -85,7 +85,7 @@ describe("walkRemote", () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it("recorre todo el árbol sin límites", async () => {
+  it("walks the whole tree without limits", async () => {
     const result = await walkRemote(fakeClient(tree), ["/httpdocs/assets"], {
       base: "/httpdocs",
       exclude: []
@@ -99,7 +99,7 @@ describe("walkRemote", () => {
 });
 
 describe("buildWalkPlan", () => {
-  it("conserva las rutas relativas", () => {
+  it("keeps relative paths", () => {
     const plan = buildWalkPlan({
       files: [{ remote: "/httpdocs/assets/app.js", relative: "assets/app.js", size: 1 }],
       directories: [
@@ -117,7 +117,7 @@ describe("buildWalkPlan", () => {
     ]);
   });
 
-  it("detecta nombres inválidos en Windows", () => {
+  it("detects invalid Windows names", () => {
     expect(() =>
       buildWalkPlan({
         files: [{ remote: "/x/a:b.txt", relative: "a:b.txt", size: 1 }],
@@ -125,17 +125,17 @@ describe("buildWalkPlan", () => {
         totalBytes: 1,
         warnings: []
       })
-    ).toThrow(/no se pueden crear en Windows/);
+    ).toThrow(/cannot be created on Windows/);
   });
 });
 
-describe("utilidades de rutas", () => {
-  it("calcula rutas relativas", () => {
+describe("path utilities", () => {
+  it("computes relative paths", () => {
     expect(relativeTo("/httpdocs", "/httpdocs/assets/a.js")).toBe("assets/a.js");
     expect(relativeTo("/", "/httpdocs")).toBe("httpdocs");
   });
 
-  it("detecta nombres reservados", () => {
+  it("detects reserved names", () => {
     expect(findUnsafeLocalNames(["CON.txt"])).toHaveLength(1);
     expect(findUnsafeLocalNames(["ok/file.txt"])).toEqual([]);
   });

@@ -55,7 +55,7 @@ export interface WalkPlan {
 const WINDOWS_INVALID = /[<>:"|?*\u0000-\u001f]/;
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 
-/** Extrae el array de entradas de las distintas formas que devuelve fs/list. */
+/** Extracts the entries array from the different shapes returned by fs/list. */
 export function parseEntries(value: unknown): RemoteEntry[] {
   return extractArray(value)
     .map(parseEntry)
@@ -107,7 +107,7 @@ export function parseEntry(value: unknown): RemoteEntry | null {
   };
 }
 
-/** Tipo de una ruta remota usando fs/stat. */
+/** Type of a remote path using fs/stat. */
 export async function remotePathKind(
   client: PleskClient,
   remote: string
@@ -127,11 +127,11 @@ export async function remotePathKind(
 
   throw new AppError(
     "REMOTE_TYPE_UNKNOWN",
-    `No se pudo determinar si ${remote} es un fichero o un directorio`
+    `Could not determine whether ${remote} is a file or a directory`
   );
 }
 
-/** Recorre las rutas remotas y devuelve ficheros y directorios. */
+/** Walks the remote paths and returns files and directories. */
 export async function walkRemote(
   client: PleskClient,
   roots: string[],
@@ -177,7 +177,7 @@ export async function walkRemote(
       }
 
       warnings.push(
-        `Se omitió ${remote}: ${entry.type === "symlink" ? "enlace simbólico" : "tipo no soportado"}`
+        `Skipped ${remote}: ${entry.type === "symlink" ? "symbolic link" : "unsupported type"}`
       );
     }
   };
@@ -201,7 +201,7 @@ export async function walkRemote(
   return { files, directories, totalBytes, warnings };
 }
 
-/** Calcula la ruta local relativa y valida los nombres para Windows. */
+/** Computes the relative local path and validates names for Windows. */
 export function buildWalkPlan(tree: RemoteTree): WalkPlan {
   const files = tree.files.map((file) => ({
     ...file,
@@ -220,9 +220,9 @@ export function buildWalkPlan(tree: RemoteTree): WalkPlan {
   if (unsafe.length > 0) {
     throw new AppError(
       "WALK_UNSAFE_NAMES",
-      `Hay ${unsafe.length} ruta(s) que no se pueden crear en Windows`,
+      `There are ${unsafe.length} path(s) that cannot be created on Windows`,
       {
-        hint: `Ejemplos: ${unsafe.slice(0, 10).join(", ")}. Excluye esas rutas o descárgalas fichero a fichero.`
+        hint: `Examples: ${unsafe.slice(0, 10).join(", ")}. Exclude those paths or download them file by file.`
       }
     );
   }
@@ -235,34 +235,34 @@ export function buildWalkPlan(tree: RemoteTree): WalkPlan {
   };
 }
 
-/** Nombres que Windows no puede crear (para el modo walk). */
+/** Names that Windows cannot create (for walk mode). */
 export function findUnsafeLocalNames(paths: string[]): string[] {
   const unsafe: string[] = [];
 
   for (const value of paths) {
     const normalized = value.replace(/\\/g, "/");
     if (path.posix.isAbsolute(normalized)) {
-      unsafe.push(`${value} (ruta absoluta)`);
+      unsafe.push(`${value} (absolute path)`);
       continue;
     }
 
     const segments = normalized.split("/").filter(Boolean);
     if (segments.includes("..")) {
-      unsafe.push(`${value} (contiene ..)`);
+      unsafe.push(`${value} (contains ..)`);
       continue;
     }
 
     for (const segment of segments) {
       if (WINDOWS_INVALID.test(segment)) {
-        unsafe.push(`${value} (carácter inválido)`);
+        unsafe.push(`${value} (invalid character)`);
         break;
       }
       if (/[. ]$/.test(segment)) {
-        unsafe.push(`${value} (termina en punto o espacio)`);
+        unsafe.push(`${value} (ends with a dot or space)`);
         break;
       }
       if (WINDOWS_RESERVED.test(segment)) {
-        unsafe.push(`${value} (nombre reservado)`);
+        unsafe.push(`${value} (reserved name)`);
         break;
       }
     }

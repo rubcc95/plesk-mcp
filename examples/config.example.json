@@ -1,42 +1,48 @@
 {
-  "defaultServer": "prod-mundopc",
+  "defaultServer": "prod-example",
   "servers": [
     {
-      "name": "prod-mundopc",
-      "url": "https://plesk.mundopc.com:8443",
+      "name": "prod-example",
+      "url": "https://plesk.example.com:8443",
       "auth": {
         "mode": "apiKey",
-        "apiKey": "env:PLESK_MUNDOPC_KEY"
+        "apiKey": "env:PLESK_PROD_EXAMPLE_KEY"
       },
+      "verifyTls": true,
+      "timeoutMs": null,
       "dbUser": "db_admin",
-      "dbPass": "env:PLESK_MUNDOPC_DB_PASS"
+      "dbPass": "env:PLESK_PROD_EXAMPLE_DB_PASS"
     },
     {
-      "name": "cliente-x",
-      "url": "https://plesk.cliente-x.com:8443",
+      "name": "client-a",
+      "url": "https://plesk.client-a.example.com:8443",
       "auth": {
         "mode": "basic",
         "username": "admin",
-        "password": "env:PLESK_CLIENTE_PASSWORD"
+        "password": "env:PLESK_CLIENT_A_PASSWORD"
       },
+      "verifyTls": true,
+      "timeoutMs": 30000,
       "dbUser": "db_admin",
-      "dbPass": "env:PLESK_CLIENTE_DB_PASS"
+      "dbPass": "env:PLESK_CLIENT_A_DB_PASS"
     }
   ],
   "localDatabases": [
     {
-      "name": "ballena",
-      "host": "192.168.1.50",
+      "name": "local-mysql-1",
+      "host": "127.0.0.1",
       "port": 3306,
       "user": "root",
-      "password": "env:MYSQL_BALLENA_PASSWORD"
+      "password": "env:MYSQL_LOCAL_1_PASSWORD",
+      "ssl": false
     },
     {
-      "name": "elefante",
-      "host": "192.168.1.51",
-      "port": 3306,
+      "name": "local-mysql-2",
+      "host": "127.0.0.1",
+      "port": 3307,
       "user": "root",
-      "password": "env:MYSQL_ELEFANTE_PASSWORD"
+      "password": "env:MYSQL_LOCAL_2_PASSWORD",
+      "ssl": false
     }
   ]
 }

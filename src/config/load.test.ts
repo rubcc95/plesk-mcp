@@ -45,7 +45,7 @@ const database = (name: string, host: string) => ({
 });
 
 describe("loadRegistry", () => {
-  it("une servidores y bases locales por nombre y gana el local", async () => {
+  it("merges servers and local databases by name, with the local one winning", async () => {
     await makeProject(
       {
         defaultServer: "prod",
@@ -74,7 +74,7 @@ describe("loadRegistry", () => {
     expect(loaded.defaultServer).toBe("prod");
   });
 
-  it("permite configurar solo bases locales sin servidores Plesk", async () => {
+  it("allows configuring only local databases without Plesk servers", async () => {
     await makeProject({}, { localDatabases: [database("ballena", "10.0.0.1")] });
 
     const loaded = await loadRegistry();
@@ -85,7 +85,7 @@ describe("loadRegistry", () => {
     expect(loaded.localDatabases).toHaveLength(1);
   });
 
-  it("rechaza el mismo nombre en servers y localDatabases", async () => {
+  it("rejects the same name in servers and localDatabases", async () => {
     await makeProject(
       {},
       {
@@ -99,7 +99,7 @@ describe("loadRegistry", () => {
     });
   });
 
-  it("rechaza un defaultServer que no existe", async () => {
+  it("rejects a defaultServer that does not exist", async () => {
     await makeProject({ defaultServer: "missing", servers: [server("prod")] }, {});
 
     await expect(loadRegistry()).rejects.toMatchObject({

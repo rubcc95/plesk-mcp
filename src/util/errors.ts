@@ -3,7 +3,7 @@ export interface AppErrorOptions {
   hint?: string;
 }
 
-/** Error con codigo estable para que el cliente MCP pueda reaccionar. */
+/** Error with a stable code so the MCP client can react to it. */
 export class AppError extends Error {
   readonly code: string;
   readonly hint?: string;
@@ -25,7 +25,7 @@ export class PleskHttpError extends AppError {
     const auth = status === 401 || status === 403;
     super(auth ? "PLESK_AUTH" : "PLESK_HTTP", message, {
       hint: auth
-        ? "Comprueba la API key o el usuario/contraseña, y que la IP del equipo esté permitida en Plesk."
+        ? "Check the API key or the username/password, and make sure this machine's IP is allowed in Plesk."
         : undefined
     });
   }

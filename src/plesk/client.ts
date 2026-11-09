@@ -40,13 +40,13 @@ interface RequestOptions {
   method?: string;
   headers?: Record<string, string>;
   body?: string | Uint8Array | null;
-  /** `null` desactiva el timeout para esa petición. */
+  /** `null` disables the timeout for that request. */
   timeoutMs?: number | null;
 }
 
 /**
- * Cliente mínimo de la API REST de Plesk.
- * No conoce tools ni configuración de proyecto: solo transporte y endpoints.
+ * Minimal Plesk REST API client.
+ * It knows nothing about tools or project configuration: only transport and endpoints.
  */
 export class PleskClient {
   private readonly baseUrl: string;
@@ -66,14 +66,14 @@ export class PleskClient {
       agent ??
       new Agent({
         connect: { rejectUnauthorized: server.verifyTls },
-        // Sin timeouts de transporte: las peticiones rápidas siguen limitadas
-        // por AbortSignal y las transferencias se ejecutan hasta completar.
+        // No transport timeouts: fast requests are still bounded
+        // by AbortSignal and transfers run to completion.
         headersTimeout: 0,
         bodyTimeout: 0
       });
   }
 
-  /** Vista del cliente que trabaja contra otro dominio (mismo transporte). */
+  /** View of the client that works against another domain (same transport). */
   scopedTo(domain: PleskDomain): PleskClient {
     const cached = this.scopedClients.get(domain.id);
     if (cached) return cached;
@@ -82,19 +82,19 @@ export class PleskClient {
     return client;
   }
 
-  /** Configuración materializada del servidor (sin secretos resueltos ya). */
+  /** Materialized server configuration (with no already-resolved secrets). */
   get serverConfig(): ServerConfig {
     return this.server;
   }
 
-  /** Información del servidor Plesk. */
+  /** Plesk server information. */
   async getServerInfo(): Promise<PleskServerInfo> {
     return this.json<PleskServerInfo>("/api/v2/server");
   }
 
   /**
-   * Resuelve un dominio por nombre. Si no se indica y el servidor solo tiene
-   * uno, lo devuelve; si hay varios, exige que la tool pase `domain`.
+   * Resolves a domain by name. If none is given and the server has only
+   * one, it returns it; if there are several, the tool must pass `domain`.
    */
   async resolveDomain(name?: string): Promise<PleskDomain> {
     if (this.fixedDomain) return this.fixedDomain;
@@ -111,7 +111,7 @@ export class PleskClient {
     return this.domainPromise;
   }
 
-  /** Lista todos los dominios visibles con la API key. */
+  /** Lists all domains visible with the API key. */
   async listDomains(): Promise<PleskDomain[]> {
     this.domainsPromise ??= this.loadDomains();
     return this.domainsPromise;
@@ -126,7 +126,7 @@ export class PleskClient {
     return this.execOn(domain.id, command, cwd, timeoutMs);
   }
 
-  /** Ejecuta un comando como el usuario de sistema de un dominio concreto. */
+  /** Runs a command as the system user of a specific domain. */
   async execOn(
     domainId: number,
     command: string[],
@@ -189,8 +189,8 @@ export class PleskClient {
   }
 
   /**
-   * Descarga un fichero remoto directamente a disco, sin cargarlo entero en memoria.
-   * Si falla a mitad, elimina el fichero parcial.
+   * Downloads a remote file directly to disk without loading it entirely into memory.
+   * If it fails midway, it removes the partial file.
    */
   async fsDownloadToFile(
     remotePath: string,
@@ -207,7 +207,7 @@ export class PleskClient {
     if (!body) {
       throw new AppError(
         "PLESK_EMPTY_RESPONSE",
-        `Plesk devolvió una respuesta vacía al descargar ${remotePath}`
+        `Plesk returned an empty response while downloading ${remotePath}`
       );
     }
 
@@ -220,7 +220,7 @@ export class PleskClient {
       await rm(localPath, { force: true }).catch(() => undefined);
       throw new AppError(
         "PLESK_DOWNLOAD_FAILED",
-        `No se pudo descargar ${remotePath} a ${localPath}`,
+        `Could not download ${remotePath} to ${localPath}`,
         { cause: error }
       );
     }
@@ -322,9 +322,9 @@ export class PleskClient {
   }
 
   /**
-   * La API fs de Plesk resuelve las rutas relativas contra el document root.
-   * El MCP usa rutas virtuales absolutas (`/httpdocs/...`), así que las
-   * traducimos al home real de la suscripción. Las rutas ya reales se dejan tal cual.
+   * Plesk's fs API resolves relative paths against the document root.
+   * The MCP uses absolute virtual paths (`/httpdocs/...`), so we translate
+   * them to the subscription's real home. Paths that are already real are left as is.
    */
   private apiPath(domain: PleskDomain, remotePath: string): string {
     if (!remotePath.startsWith("/")) return remotePath;
@@ -354,9 +354,9 @@ export class PleskClient {
 
     throw new AppError(
       "PLESK_DOMAIN_NOT_FOUND",
-      `No se encontró el dominio "${name}" en el servidor`,
+      `Domain "${name}" was not found on the server`,
       {
-        hint: `Dominios disponibles: ${domains
+        hint: `Available domains: ${domains
           .slice(0, 10)
           .map((domain) => domain.name)
           .join(", ")}`
@@ -372,15 +372,15 @@ export class PleskClient {
     if (domains.length === 0) {
       throw new AppError(
         "PLESK_DOMAIN_NOT_FOUND",
-        "El servidor no tiene dominios accesibles con esta API key"
+        "The server has no domains accessible with this API key"
       );
     }
 
     throw new AppError(
       "PLESK_DOMAIN_REQUIRED",
-      "El servidor tiene varios dominios y la tool no recibió domain",
+      "The server has several domains and the tool did not receive domain",
       {
-        hint: `Pasa "domain" en la tool. Dominios: ${domains
+        hint: `Pass "domain" in the tool. Domains: ${domains
           .slice(0, 10)
           .map((domain) => domain.name)
           .join(", ")}`
@@ -422,19 +422,19 @@ export class PleskClient {
     } catch (error) {
       throw new AppError(
         "PLESK_UNREACHABLE",
-        `No se pudo conectar con Plesk en ${this.baseUrl}`,
-        { cause: error, hint: "Comprueba la URL, el puerto 8443 y la red/VPN." }
+        `Could not connect to Plesk at ${this.baseUrl}`,
+        { cause: error, hint: "Check the URL, port 8443, and the network/VPN." }
       );
     }
 
     if (!response.ok) {
       const body = redactText(await response.text());
-      let message = `Plesk respondió HTTP ${response.status} ${response.statusText}`;
+      let message = `Plesk returned HTTP ${response.status} ${response.statusText}`;
       try {
         const parsed = JSON.parse(body) as { message?: string };
         if (parsed.message) message = parsed.message;
       } catch {
-        // El cuerpo no era JSON; se conserva el mensaje HTTP.
+        // The body was not JSON; the HTTP message is kept.
       }
       throw new PleskHttpError(response.status, message, body.slice(0, 2_000));
     }
@@ -447,7 +447,7 @@ function queryPath(remotePath: string): string {
   return new URLSearchParams({ path: remotePath }).toString();
 }
 
-/** Raíz real de la suscripción (home del usuario de sistema). */
+/** Real subscription root (system user home). */
 export function subscriptionRoot(domain: PleskDomain): string | undefined {
   const root =
     typeof domain.www_root === "string"

@@ -26,7 +26,7 @@ describe("local-tree", () => {
     await rm(project, { recursive: true, force: true });
   });
 
-  it("calcula la base común", async () => {
+  it("computes the common base", async () => {
     const entries = await Promise.all([
       resolveLocalEntry(project, "dist"),
       resolveLocalEntry(project, "dist/sub")
@@ -34,7 +34,7 @@ describe("local-tree", () => {
     expect(findLocalBase(entries.map((entry) => entry.absolute))).toBe(project);
   });
 
-  it("recorre ficheros, directorios y tamaños", async () => {
+  it("walks files, directories, and sizes", async () => {
     const entries = [await resolveLocalEntry(project, "dist")];
     const tree = await collectLocalTree(entries, {
       exclude: ["*.map"]
@@ -52,7 +52,7 @@ describe("local-tree", () => {
     expect(tree.totalBytes).toBe(7);
   });
 
-  it("conserva las rutas relativas", async () => {
+  it("keeps relative paths", async () => {
     const entries = [await resolveLocalEntry(project, "dist")];
     const tree = await collectLocalTree(entries, {
       exclude: ["*.map"]
@@ -69,15 +69,15 @@ describe("local-tree", () => {
     ]);
   });
 
-  it("rechaza rutas fuera del proyecto", async () => {
-    await expect(resolveLocalEntry(project, "../fuera")).rejects.toThrow(
-      /fuera del proyecto|No existe/
+  it("rejects paths outside the project", async () => {
+    await expect(resolveLocalEntry(project, "../outside")).rejects.toThrow(
+      /outside the project|does not exist/
     );
   });
 });
 
 describe("buildExtractArgs", () => {
-  it("construye el comando con skip", () => {
+  it("builds the command with skip", () => {
     expect(
       buildExtractArgs({
         tarBinary: "/bin/tar",

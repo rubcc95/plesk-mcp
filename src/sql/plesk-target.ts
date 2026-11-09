@@ -146,9 +146,9 @@ export class PleskSqlTarget implements SqlTarget {
     if (!dbUser || !dbPass) {
       throw new AppError(
         "DB_CREDENTIALS_MISSING",
-        `El servidor "${this.name}" no tiene dbUser/dbPass configurados`,
+        `Server "${this.name}" has no dbUser/dbPass configured`,
         {
-          hint: "Añade dbUser y dbPass al servidor en la configuración para poder ejecutar SQL."
+          hint: "Add dbUser and dbPass to the server in the config to be able to run SQL."
         }
       );
     }
@@ -161,9 +161,9 @@ export class PleskSqlTarget implements SqlTarget {
       const detail =
         redactText(
           result.stderr || result.message || result.stdout || ""
-        ).trim() || `mysql terminó con código ${result.code}`;
+        ).trim() || `mysql finished with code ${result.code}`;
       throw new AppError("SQL_EXEC_FAILED", detail, {
-        hint: `Plesk devolvió código ${result.code}`
+        hint: `Plesk returned code ${result.code}`
       });
     }
 
@@ -187,10 +187,10 @@ async function getShell(runtime: ServerRuntime): Promise<ShellAccess> {
     if (!access) {
       throw new AppError(
         "DB_EXEC_UNAVAILABLE",
-        "Ningún dominio del servidor permite ejecutar mysql",
+        "No domain on the server allows running mysql",
         {
           hint:
-            "Activa SSH/shell en algún dominio y comprueba que mysql o mariadb estén instalados."
+            "Enable SSH/shell on some domain and check that mysql or mariadb is installed."
         }
       );
     }
@@ -229,7 +229,7 @@ function buildScript(
       password
     )} > "$f"`,
     'MYSQL_BIN="$(command -v mysql || command -v mariadb)"',
-    '[ -n "$MYSQL_BIN" ] || { echo "mysql/mariadb no encontrado" >&2; exit 127; }',
+    '[ -n "$MYSQL_BIN" ] || { echo "mysql/mariadb not found" >&2; exit 127; }',
     command
   ].join("\n");
 }

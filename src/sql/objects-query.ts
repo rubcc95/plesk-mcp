@@ -7,8 +7,8 @@ import type {
 } from "./targets.js";
 
 /**
- * Construye la consulta contra `information_schema` para `search_objects`.
- * Devuelve como máximo `limit + 1` filas para poder detectar truncamiento.
+ * Builds the `information_schema` query for `search_objects`.
+ * Returns at most `limit + 1` rows so truncation can be detected.
  */
 export function buildSearchObjectsQuery(options: SearchObjectsOptions): string {
   const limit = Math.max(1, Math.min(1000, Math.floor(options.limit)));
@@ -80,12 +80,12 @@ export function buildSearchObjectsQuery(options: SearchObjectsOptions): string {
     default:
       throw new AppError(
         "SQL_OBJECT_TYPE_INVALID",
-        `Tipo de objeto SQL no soportado: ${String(options.objectType)}`
+        `Unsupported SQL object type: ${String(options.objectType)}`
       );
   }
 }
 
-/** Convierte filas de `information_schema` en objetos limpios para la tool. */
+/** Converts `information_schema` rows into clean objects for the tool. */
 export function rowsToObjects(
   rows: Array<Record<string, string | null>>,
   options: SearchObjectsOptions
@@ -124,8 +124,8 @@ function requireDatabase(options: SearchObjectsOptions): string {
   if (!options.database || options.database.trim() === "") {
     throw new AppError(
       "SQL_DATABASE_REQUIRED",
-      `La búsqueda de ${options.objectType} requiere indicar \`database\``,
-      { hint: "Solo `object_type=schema` puede omitir la base de datos." }
+      `Searching ${options.objectType} requires specifying \`database\``,
+      { hint: "Only `object_type=schema` can omit the database." }
     );
   }
   return options.database;
@@ -135,8 +135,8 @@ function requireTable(options: SearchObjectsOptions): string {
   if (!options.table || options.table.trim() === "") {
     throw new AppError(
       "SQL_TABLE_REQUIRED",
-      `La búsqueda de ${options.objectType} requiere indicar \`table\``,
-      { hint: "Indica la tabla para columnas e índices." }
+      `Searching ${options.objectType} requires specifying \`table\``,
+      { hint: "Specify the table for columns and indexes." }
     );
   }
   return options.table;
