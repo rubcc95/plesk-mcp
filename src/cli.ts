@@ -94,10 +94,10 @@ async function initFile(filePath: string, force: boolean, global: boolean): Prom
   console.log(
     JSON.stringify(
       {
-        defaultServer: "prod-mundopc",
+        defaultServer: "prod-example",
         servers: [
           {
-            name: "prod-mundopc",
+            name: "prod-example",
             url: "https://plesk.example.com:8443",
             auth: {
               mode: "apiKey",
@@ -119,7 +119,7 @@ async function initFile(filePath: string, force: boolean, global: boolean): Prom
       {
         localDatabases: [
           {
-            name: "ballena",
+            name: "local-mysql-1",
             host: "192.168.1.50",
             port: 3306,
             user: "root",

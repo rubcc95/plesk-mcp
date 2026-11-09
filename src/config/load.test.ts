@@ -6,6 +6,7 @@ import { loadRegistry } from "./load.js";
 
 const originalCwd = process.cwd();
 const originalGlobal = process.env.PLESK_GLOBAL_CONFIG;
+const originalProjectRoot = process.env.PLESK_PROJECT_ROOT;
 const cleanup: string[] = [];
 
 afterEach(async () => {
@@ -14,6 +15,11 @@ afterEach(async () => {
     delete process.env.PLESK_GLOBAL_CONFIG;
   } else {
     process.env.PLESK_GLOBAL_CONFIG = originalGlobal;
+  }
+  if (originalProjectRoot === undefined) {
+    delete process.env.PLESK_PROJECT_ROOT;
+  } else {
+    process.env.PLESK_PROJECT_ROOT = originalProjectRoot;
   }
   await Promise.all(cleanup.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
@@ -50,11 +56,11 @@ describe("loadRegistry", () => {
       {
         defaultServer: "prod",
         servers: [server("prod"), server("shared")],
-        localDatabases: [database("ballena", "10.0.0.1")]
+        localDatabases: [database("local-mysql-1", "10.0.0.1")]
       },
       {
         servers: [{ ...server("shared"), url: "https://local.example.com:8443" }],
-        localDatabases: [database("elefante", "10.0.0.2")]
+        localDatabases: [database("local-mysql-2", "10.0.0.2")]
       }
     );
 
@@ -68,14 +74,14 @@ describe("loadRegistry", () => {
       "local"
     );
     expect(loaded.localDatabases.map((entry) => entry.name)).toEqual([
-      "ballena",
-      "elefante"
+      "local-mysql-1",
+      "local-mysql-2"
     ]);
     expect(loaded.defaultServer).toBe("prod");
   });
 
   it("allows configuring only local databases without Plesk servers", async () => {
-    await makeProject({}, { localDatabases: [database("ballena", "10.0.0.1")] });
+    await makeProject({}, { localDatabases: [database("local-mysql-1", "10.0.0.1")] });
 
     const loaded = await loadRegistry();
 
@@ -89,8 +95,8 @@ describe("loadRegistry", () => {
     await makeProject(
       {},
       {
-        servers: [server("ballena")],
-        localDatabases: [database("ballena", "10.0.0.1")]
+        servers: [server("local-mysql-1")],
+        localDatabases: [database("local-mysql-1", "10.0.0.1")]
       }
     );
 
@@ -105,5 +111,22 @@ describe("loadRegistry", () => {
     await expect(loadRegistry()).rejects.toMatchObject({
       code: "DEFAULT_SERVER_NOT_FOUND"
     });
+  });
+
+  it("resolves the local config from PLESK_PROJECT_ROOT", async () => {
+    const root = await makeProject(
+      {},
+      { servers: [server("from-env-root")] }
+    );
+    const otherCwd = await mkdtemp(path.join(os.tmpdir(), "plesk-mcp-cwd-"));
+    cleanup.push(otherCwd);
+    process.chdir(otherCwd);
+    process.env.PLESK_PROJECT_ROOT = root;
+
+    const loaded = await loadRegistry();
+
+    expect(loaded.projectRoot).toBe(root);
+    expect(loaded.localConfigPath).toBe(path.join(root, ".plesk", "config.json"));
+    expect(loaded.servers.map((entry) => entry.name)).toEqual(["from-env-root"]);
   });
 });

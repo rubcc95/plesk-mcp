@@ -60,7 +60,7 @@ describe("ServerSchema DB", () => {
 describe("LocalDatabaseSchema", () => {
   it("applies the default port and ssl", () => {
     const result = LocalDatabaseSchema.parse({
-      name: "ballena",
+      name: "local-mysql-1",
       host: "192.168.1.50",
       user: "root",
       password: "secret"

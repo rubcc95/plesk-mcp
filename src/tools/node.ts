@@ -158,7 +158,7 @@ export function registerNodeTools(registrar: ToolRegistrar, ctx: ToolContext): v
     {
       title: "Import environment variables from a .env",
       description:
-        "Reads a local .env file and writes its variables to the Node.js application. Variables are always stored as secret in Plesk. Never returns names or values.",
+        "Reads a local .env file and writes its variables to the Node.js application. Variables are always stored as secrets in Plesk. Never returns names or values.",
       inputSchema: {
         server: serverField,
         file: z
