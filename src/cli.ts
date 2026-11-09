@@ -8,6 +8,7 @@ import {
   registrySummary,
   resolveGlobalConfigPath,
   resolveLocalConfigPath,
+  resolveProjectRoot,
   type LoadedRegistry
 } from "./config/load.js";
 import { PleskClient } from "./plesk/client.js";
@@ -15,11 +16,11 @@ import type { ExecAccess } from "./plesk/exec-access.js";
 import { discoverShellDomain, resolveExecAccess } from "./plesk/exec-access.js";
 import { asAppError } from "./util/errors.js";
 
-const VERSION = "0.1.0";
+const VERSION = __PKG_VERSION__;
 const EMPTY_REGISTRY = { servers: [], localDatabases: [] };
 
 const program = new Command()
-  .name("plesk-project")
+  .name("plesk-mcp")
   .description("Prepares and checks the plesk-mcp configuration")
   .version(VERSION)
   .option("--global-config <path>", "alternative path to the global config");
@@ -66,12 +67,17 @@ program
     printSummary(loaded);
   });
 
-program.parseAsync(process.argv).catch((error) => {
-  const appError = asAppError(error);
-  console.error(`${appError.code}: ${appError.message}`);
-  if (appError.hint) console.error(`Hint: ${appError.hint}`);
-  process.exitCode = 1;
-});
+/** CLI entry point. It does not run when the module is imported. */
+export async function runCli(argv: string[] = process.argv): Promise<void> {
+  try {
+    await program.parseAsync(argv);
+  } catch (error) {
+    const appError = asAppError(error);
+    console.error(`${appError.code}: ${appError.message}`);
+    if (appError.hint) console.error(`Hint: ${appError.hint}`);
+    process.exitCode = 1;
+  }
+}
 
 async function initFile(filePath: string, force: boolean, global: boolean): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
@@ -80,7 +86,7 @@ async function initFile(filePath: string, force: boolean, global: boolean): Prom
     await writeFile(filePath, `${JSON.stringify(EMPTY_REGISTRY, null, 2)}\n`, "utf8");
   }
 
-  if (!global) await ensureGitignore(process.cwd());
+  if (!global) await ensureGitignore(resolveProjectRoot());
 
   console.log(`${global ? "Global config" : "Local config"}: ${filePath}`);
   console.log("");

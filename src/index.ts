@@ -1,6 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { runCli } from "./cli.js";
 import { loadRegistry } from "./config/load.js";
 import { createToolContext } from "./tools/context.js";
 import { registerDepsTools } from "./tools/deps.js";
@@ -12,21 +11,9 @@ import { registerConfigErrorTools, registerProjectTools } from "./tools/project.
 import { registerSqlTools } from "./sql/tools.js";
 import { asAppError } from "./util/errors.js";
 
-const VERSION = __PKG_VERSION__;
-
-const CLI_COMMANDS = new Set(["init", "doctor", "servers", "project-info"]);
-const CLI_FLAGS = new Set(["--help", "-h", "--version", "-V"]);
-
-function isCliInvocation(argv: string[]): boolean {
-  return argv.some((arg) => CLI_COMMANDS.has(arg) || CLI_FLAGS.has(arg));
-}
+const VERSION = "0.1.0";
 
 async function main(): Promise<void> {
-  if (isCliInvocation(process.argv.slice(2))) {
-    await runCli(process.argv);
-    return;
-  }
-
   const server = new McpServer({ name: "plesk-mcp", version: VERSION });
   const accessMode = resolveAccessMode();
   const registrar = createToolRegistrar(server, accessMode);
