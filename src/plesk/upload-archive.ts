@@ -9,6 +9,7 @@ import { mapPool } from "../util/pool.js";
 import { redactText } from "../util/redact.js";
 import { withRetry } from "../util/retry.js";
 import type { PleskClient } from "./client.js";
+import { subscriptionRoot } from "./client.js";
 import {
   clearExecAccessCache,
   resolveExecAccess,
@@ -90,6 +91,11 @@ export async function prepareArchiveTarget(
     tempDirRest,
     dryRun ? "<uuid>.tar.gz" : `${randomUUID()}.tar.gz`
   );
+  // The staging archive is uploaded through the fs API of the target domain,
+  // which resolves virtual paths against its subscription root. The shell path
+  // must use that same root: the exec mapping of remoteDir is only valid for
+  // remoteDir itself and is empty when the destination is already a real path.
+  const stagingRoot = subscriptionRoot(access.target) ?? execPaths.home;
 
   return {
     home: execPaths.home,
@@ -99,7 +105,7 @@ export async function prepareArchiveTarget(
     restPath,
     // The upload always lands on the target domain (fs API), even if the
     // shell that extracts belongs to another domain.
-    realPath: toRealPath(execPaths.prefix, restPath),
+    realPath: toRealPath(stagingRoot, restPath),
     realRemoteDir: toRealPath(execPaths.prefix, remoteDir),
     execDomain: { id: access.domain.id, name: access.domain.name },
     foreign: access.foreign,
@@ -123,6 +129,29 @@ export function buildExtractArgs(options: {
   ];
   if (!options.overwrite) args.push("--skip-old-files");
   return args;
+}
+
+/**
+ * Confirms that the shell sees the archive exactly where the fs API uploaded
+ * it. If the mapping lost the subscription prefix, this fails with both paths
+ * instead of letting tar report an opaque "No such file or directory".
+ */
+async function assertArchiveVisible(target: ArchiveTarget): Promise<void> {
+  const result = await target.access
+    .exec(["test", "-f", target.realPath], undefined, null)
+    .catch(() => null);
+  if (!result || result.code === 0) return;
+
+  throw new AppError(
+    "UPLOAD_ARCHIVE_NOT_UPLOADED",
+    `The uploaded archive ${target.restPath} is not visible to the shell as ${target.realPath}`,
+    {
+      hint:
+        `Paths: uploaded=${target.restPath}; real=${target.realPath}; ` +
+        `home=${target.home}; prefix=${target.prefix || "(empty)"}. ` +
+        "File-by-file upload over REST will be used."
+    }
+  );
 }
 
 export async function createLocalArchive(
@@ -198,6 +227,7 @@ export async function uploadArchive(options: UploadArchiveOptions) {
         overwrite: true
       })
     );
+    await assertArchiveVisible(target);
 
     const command = buildExtractArgs({
       tarBinary: target.tarBinary,
@@ -227,13 +257,15 @@ export async function uploadArchive(options: UploadArchiveOptions) {
     );
 
     if (result.code !== 0) {
+      const detail = redactText(result.stderr || result.message || "").trim();
+      const paths = `archive=${target.realPath}; uploaded=${target.restPath}`;
       if (target.foreign) {
         throw new AppError(
           "EXEC_UNAVAILABLE",
           `tar failed with code ${result.code} while extracting as ${target.execDomain.name}`,
           {
             hint:
-              redactText(result.stderr || result.message || "") ||
+              [paths, detail].filter(Boolean).join(". ") ||
               "The alternate domain could not write to the destination; file-by-file upload will be used."
           }
         );
@@ -241,7 +273,7 @@ export async function uploadArchive(options: UploadArchiveOptions) {
       throw new AppError(
         "UPLOAD_EXTRACT_FAILED",
         `tar failed with code ${result.code} while extracting into ${options.remoteDir}`,
-        { hint: redactText(result.stderr || result.message || "") || undefined }
+        { hint: [paths, detail].filter(Boolean).join(". ") || undefined }
       );
     }
 

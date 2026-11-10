@@ -257,7 +257,20 @@ async function execPathExists(
   return result?.code === 0;
 }
 
+/** true if the path is already a real server path (not virtual to the subscription). */
+export function isRealRemotePath(remotePath: string): boolean {
+  return (
+    remotePath.startsWith("/var/www/vhosts/") || /^[A-Za-z]:[\\/]/.test(remotePath)
+  );
+}
+
+/**
+ * Translates a Plesk fs API path (relative to the subscription root) to the
+ * real path seen by exec. Paths that are already real are returned untouched,
+ * so translating twice is harmless.
+ */
 export function toRealPath(prefix: string, restPath: string): string {
+  if (isRealRemotePath(restPath)) return restPath;
   const cleanPrefix = prefix === "/" ? "" : prefix.replace(/\/+$/, "");
   if (!cleanPrefix) return restPath;
   return restPath === "/" ? cleanPrefix : `${cleanPrefix}${restPath}`;
@@ -269,7 +282,12 @@ function prefixFor(candidate: string, baseRest: string): string | null {
   }
   if (!candidate.endsWith(baseRest)) return null;
   const prefix = candidate.slice(0, candidate.length - baseRest.length);
-  if (!prefix) return "";
+  if (!prefix) {
+    // An empty prefix only makes sense when the base is already a real path;
+    // for a virtual base it would drop the subscription root from every
+    // derived path (for example the temporary archive).
+    return isRealRemotePath(baseRest) ? "" : null;
+  }
   if (!prefix.startsWith("/")) return null;
   return prefix.replace(/\/+$/, "");
 }
@@ -517,7 +535,8 @@ function unsafeReason(entry: ArchiveEntryInfo): string | null {
 const FALLBACK_CODES = new Set([
   "EXEC_UNAVAILABLE",
   "EXEC_PATH_MAPPING_FAILED",
-  "TAR_UNAVAILABLE"
+  "TAR_UNAVAILABLE",
+  "UPLOAD_ARCHIVE_NOT_UPLOADED"
 ]);
 
 export function isExecFallbackError(error: unknown): boolean {
@@ -589,7 +608,11 @@ async function countExistingTargets(
   return found.filter(Boolean).length;
 }
 
-/** Deletes the remote temporary archive and its directory if it is left empty. */
+/**
+ * Deletes the remote temporary archive. The temporary directory is left in
+ * place: it is shared by concurrent transfers and removing it can make another
+ * in-flight upload lose its staging path.
+ */
 export async function cleanupRemoteArchive(
   client: PleskClient,
   archive: Pick<RemoteArchive, "restPath" | "tempDirRest"> & {
@@ -598,11 +621,6 @@ export async function cleanupRemoteArchive(
 ): Promise<void> {
   const target = archive.stagingClient ?? client;
   await deleteRemoteIfExists(target, archive.restPath, false).catch(() => undefined);
-  if (archive.tempDirRest === DEFAULT_TEMP_DIR) {
-    await deleteRemoteIfExists(target, archive.tempDirRest, false).catch(
-      () => undefined
-    );
-  }
 }
 
 /** Deletes a local file if it exists. */

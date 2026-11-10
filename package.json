@@ -1,7 +1,7 @@
 {
   "name": "@rubcc95/plesk-mcp",
   "version": "0.1.0",
-  "description": "MCP server for Plesk: files, Node.js, logs and SQL databases",
+  "description": "MCP server for Plesk: files, composer, Node.js, logs and SQL databases",
   "type": "module",
   "license": "MIT",
   "author": "rubcc95",
