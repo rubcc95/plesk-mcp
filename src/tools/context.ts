@@ -5,7 +5,6 @@ import {
 } from "../config/load.js";
 import type { ServerConfig } from "../config/schema.js";
 import { PleskClient } from "../plesk/client.js";
-import { NodeAdapter } from "../plesk/node.js";
 import { AppError } from "../util/errors.js";
 import type { AccessMode } from "./policy.js";
 
@@ -13,7 +12,6 @@ export interface ServerRuntime {
   name: string;
   server: ServerConfig;
   client: PleskClient;
-  node: NodeAdapter;
   source: "global" | "local";
 }
 
@@ -69,7 +67,6 @@ export class ServerRegistry {
       name: entry.name,
       server,
       client,
-      node: new NodeAdapter(client),
       source: entry.source
     };
     this.cache.set(entry.name, runtime);

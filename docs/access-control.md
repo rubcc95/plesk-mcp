@@ -54,15 +54,18 @@ them. They are informative: the server enforces the real behavior.
 Read-only (never prompt):
 
 `servers_list`, `project_info`, `doctor`, `file_list`, `file_stat`,
-`file_read`, `file_download`, `logs`, `node_list`, `node_info`,
-`node_env_list`, `node_status`, `list_databases`, `search_objects`.
+`file_read`, `file_download`, `logs`, `domains_list`, `plesk_xml_call`,
+`list_databases`, `search_objects`.
 
 Write (prompt in `confirm` mode):
 
 `file_write`, `file_upload`, `file_mkdir`, `file_move`, `file_copy`,
-`file_delete`, `file_chmod`, `node_configure`, `node_update`, `node_env_set`,
-`node_env_unset`, `node_install`, `node_run_script`, `node_restart`,
-`node_start`, `node_stop`, `deps_install`, `execute_sql_write`.
+`file_delete`, `file_chmod`, `execute_sql_write`.
+
+Dynamic (`plesk_cli`): read-only flags (`--info`, `--list`, `--version`,
+`--show`, `--help`) run without prompting; any other call is treated as a write
+and requires confirmation, or `PLESK_MCP_ALLOW_CLI_WRITE=1` in
+`full`/`client` mode.
 
 `file_download` is classified as read-only because it does not modify the
 server, even though it writes to the local disk.
@@ -117,16 +120,8 @@ equivalent) and mark writes with `effect: "ask"`:
     { "action": "plesk_file_copy",       "resource": "*", "effect": "ask" },
     { "action": "plesk_file_delete",     "resource": "*", "effect": "ask" },
     { "action": "plesk_file_chmod",      "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_configure",  "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_update",     "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_env_set",    "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_env_unset",  "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_install",    "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_run_script", "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_restart",    "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_start",      "resource": "*", "effect": "ask" },
-    { "action": "plesk_node_stop",       "resource": "*", "effect": "ask" },
-    { "action": "plesk_deps_install",    "resource": "*", "effect": "ask" }
+    { "action": "plesk_plesk_cli",       "resource": "*", "effect": "ask" },
+    { "action": "plesk_execute_sql_write","resource": "*", "effect": "ask" }
   ],
   "agents": {
     "plan": {
@@ -138,16 +133,8 @@ equivalent) and mark writes with `effect: "ask"`:
         { "action": "plesk_file_copy",       "resource": "*", "effect": "deny" },
         { "action": "plesk_file_delete",     "resource": "*", "effect": "deny" },
         { "action": "plesk_file_chmod",      "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_configure",  "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_update",     "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_env_set",    "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_env_unset",  "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_install",    "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_run_script", "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_restart",    "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_start",      "resource": "*", "effect": "deny" },
-        { "action": "plesk_node_stop",       "resource": "*", "effect": "deny" },
-        { "action": "plesk_deps_install",    "resource": "*", "effect": "deny" }
+        { "action": "plesk_plesk_cli",       "resource": "*", "effect": "deny" },
+        { "action": "plesk_execute_sql_write","resource": "*", "effect": "deny" }
       ]
     }
   }

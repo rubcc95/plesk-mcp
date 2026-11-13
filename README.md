@@ -158,7 +158,7 @@ Claude Code permission rules use `mcp__<server>__<tool>`. Minimal example for
 
 Add the other write tools (`mcp__plesk__file_write`,
 `mcp__plesk__file_upload`, `mcp__plesk__file_delete`,
-`mcp__plesk__deps_install`, and so on) to `ask` as needed. The full list is in
+`mcp__plesk__plesk_cli`, and so on) to `ask` as needed. The full list is in
 [docs/access-control.md](docs/access-control.md).
 
 ## Configuration
@@ -399,33 +399,70 @@ document root.
 Local paths must stay inside the project root. Symlinks that escape the project
 are rejected, and local symlinks are skipped during recursive uploads.
 
-### Node.js
+### Domains
 
 | Tool | Inputs | Description |
 | --- | --- | --- |
-| `node_list` | `server?` | Lists Node.js applications managed by Plesk. |
-| `node_info` | `server?`, `domain?` | Returns the application configuration. |
-| `node_configure` | `server?`, `domain?`, `appRoot?`, `startupFile?`, `nodeVersion?`, `appMode?`, `packageManager?`, `documentRoot?` | Auto-configures the application when no options are passed; otherwise updates the given settings. |
-| `node_update` | same as `node_configure` | Updates the given settings. |
-| `node_env_list` | `server?`, `domain?` | Lists environment variable names only. Never returns values. |
-| `node_env_set` | `server?`, `domain?`, `file` | Imports a local `.env` file. Variables are always stored as secrets in Plesk. The tool never returns names or values. |
-| `node_env_unset` | `server?`, `domain?`, `key` | Removes an environment variable. |
-| `node_install` | `server?`, `domain?` | Installs dependencies with the configured package manager. |
-| `node_run_script` | `server?`, `domain?`, `script` | Runs a `package.json` script. |
-| `node_restart` | `server?`, `domain?` | Restarts the application. |
-| `node_start` | `server?`, `domain?` | Starts the application. |
-| `node_stop` | `server?`, `domain?` | Stops the application. |
-| `node_status` | `server?`, `domain?` | Returns the application status. |
+| `domains_list` | `server?`, `includeAliases?` | Returns every domain and subdomain of the server with its id, hosting type, document root and aliases. Not paginated. |
 
-`node_env_set` writes entries sequentially. If Plesk rejects an entry, the
-operation stops and variables already written remain. Restart the application
-after changing environment variables.
+Domains without hosting (`standard_forwarding`, `frame_forwarding`) are still
+listed: they simply cannot run PHP.
 
-### Dependencies
+### Plesk CLI
 
 | Tool | Inputs | Description |
 | --- | --- | --- |
-| `deps_install` | `server?`, `domain?`, `command`, `cwd?` | Runs an allowlisted installer: `npm`, `pnpm`, `yarn`, `composer`, `bundle`, `pip`, or `pip3`. This is not a free-form shell. |
+| `plesk_cli` | `server?`, `id`, `params?` | Runs a Plesk CLI command (`POST /api/v2/cli/{id}/call`), for example `domain --info example.com` or `php_handler --list`. |
+
+`id` is restricted to `client`, `database`, `dns`, `domain`, `extension`, `ip`,
+`php_handler`, `site`, `subdomain` and `webspace`.
+
+Calls whose flags are all read-only (`--info`, `--list`, `--version`, `--show`,
+`--help`) run directly. Anything else requires confirmation in `confirm` mode,
+and in `full`/`client` mode it is rejected unless the server is started with
+`PLESK_MCP_ALLOW_CLI_WRITE=1`. Plesk runs these commands as root, so treat
+write calls as production changes.
+
+This tool replaces the former `deps_install` and `node_*` tools: for example
+`plesk_cli` with `id: "extension"` and
+`params: ["--exec", "nodejs", "--list"]`.
+
+### XML API
+
+| Tool | Inputs | Description |
+| --- | --- | --- |
+| `plesk_xml_call` | `server?`, `packet` | Sends a read-only packet to `https://<panel>:8443/enterprise/control/agent.php` and returns the parsed `<packet>` response. |
+
+Only `<get>` operators are accepted. Packets containing `set`, `add`, `del` or
+`update` are rejected with `XML_API_READ_ONLY` before anything is sent. The
+packet is capped at 64 KB.
+
+Useful packets:
+
+```xml
+<packet version="1.6.9.0"><site><get><filter/><dataset><gen_info/><hosting/></dataset></get></site></packet>
+<packet version="1.6.9.0"><php-handler><get><filter/></get></php-handler></packet>
+```
+
+`hosting` datasets expose `php_handler_id`, and `php-handler/get` exposes
+`full-version`, which is how the per-domain PHP version is resolved. The XML API
+requires username/password auth; with `apiKey` mode the tool returns
+`XML_API_AUTH_UNSUPPORTED`.
+
+### PHP inventory (`inventory` CLI command)
+
+The XML API data is also available without an MCP client:
+
+```bash
+node dist/index.js inventory -s adw1 -o adw1.MD
+node dist/index.js inventory -s adw1 --json
+```
+
+It reads the domain census from REST v2, resolves `php_handler_id` per host with
+one `webspace/get` plus `site/get` for subdomains, maps handlers to
+`full-version`, and refuses to write the report if any host is unresolved. The
+Markdown contains the census counts (`Dominios revisados` / `Total API`) and a
+`| Dominio | Versión PHP |` table.
 
 ### Logs
 
@@ -555,23 +592,20 @@ domain path, it reports the problem and confirms that `walk` will be used.
 - Configure your MCP client to deny reading the local and global config files.
 - Write tools require human confirmation in `confirm` mode, or the client's
   permission dialog in `full`/`client` mode.
-- `deps_install` accepts only known installers (`npm`, `pnpm`, `yarn`,
-  `composer`, `bundle`, `pip`, `pip3`).
+- `plesk_cli` is restricted to an allowlist of CLI commands and only runs
+  read-only flags without confirmation. Write commands need confirmation or
+  `PLESK_MCP_ALLOW_CLI_WRITE=1`.
+- `plesk_xml_call` only forwards `<get>` packets; anything that could modify the
+  server is rejected before the request leaves the process.
 - `file_upload` and `file_download` execute `tar` only with validated paths and
   exclusion patterns.
 - If the selected domain has no shell, another domain's shell can be used, but
   always as that domain's system user (never root) and only after verifying real
   access with `test -e/-r/-w`.
 - The only internal commands executed by the server are `whoami`, `test`,
-  `pwd`, `printenv`, `tar`, `mysql`/`mariadb`, the `plesk ext nodejs` CLI, and
-  the installers allowed by `deps_install`. There is no generic shell tool.
-- `node_run_script` can run any script defined in the application's
-  `package.json`. Package installers may also run lifecycle scripts. Treat both
-  as code execution on the server and restrict them with client permissions.
+  `pwd`, `printenv`, `tar`, `mysql`/`mariadb` and the CLI calls requested through
+  `plesk_cli`. There is no generic shell tool.
 - Local symlinks are always skipped.
-- `node_env_set` does not accept keys or values directly: it imports a local
-  `.env` file, stores every entry as a secret in Plesk, and never returns the
-  contents to the AI.
 - Plesk MySQL credentials are not used over TCP from your machine. The `mysql`
   CLI runs on a domain with shell, with a temporary `umask 077` credentials file
   that is deleted on exit.

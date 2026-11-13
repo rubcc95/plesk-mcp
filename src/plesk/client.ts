@@ -17,8 +17,11 @@ export interface PleskServerInfo {
 export interface PleskDomain {
   id: number;
   name: string;
+  ascii_name?: string;
+  base_domain_id?: number;
   hosting_type?: string;
   www_root?: string;
+  aliases?: unknown[];
   [key: string]: unknown;
 }
 
@@ -164,6 +167,36 @@ export class PleskClient {
       stdout: result.stdout ?? "",
       stderr: result.stderr ?? ""
     };
+  }
+
+  /**
+   * Calls the Plesk XML API. Read-only enforcement is the caller's job
+   * (`assertReadOnlyPacket`); this method only transports the packet.
+   */
+  async xmlCall(packet: string): Promise<string> {
+    const { auth } = this.server;
+    if (auth.mode !== "basic") {
+      throw new AppError(
+        "XML_API_AUTH_UNSUPPORTED",
+        "The Plesk XML API requires username/password authentication",
+        {
+          hint: 'Set auth.mode to "basic" with username and password for this server.'
+        }
+      );
+    }
+
+    const response = await this.request("/enterprise/control/agent.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/xml",
+        Accept: "text/xml",
+        HTTP_AUTH_LOGIN: auth.username,
+        HTTP_AUTH_PASSWD: auth.password
+      },
+      body: packet
+    });
+
+    return response.text();
   }
 
   async fsList(remotePath: string): Promise<unknown> {

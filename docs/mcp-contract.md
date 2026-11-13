@@ -120,30 +120,42 @@ Rules:
 - `file_download` is classified as read-only server-side even though it writes to
   the local disk.
 
-## Node.js
+## Domains
 
-- `node_list(server?)`
-- `node_info(server?, domain?)`
-- `node_configure(server?, domain?, appRoot?, startupFile?, nodeVersion?, appMode?, packageManager?, documentRoot?)`
-- `node_update(...)`
-- `node_env_list(server?, domain?)` — names only.
-- `node_env_set(server?, domain?, file)` — imports a local `.env` (`KEY=value`).
-  Variables are always stored as secrets in Plesk. The tool returns neither names
-  nor values; the AI only sees the file path. If any line is invalid, no variable
-  is written.
-- `node_env_unset(server?, domain?, key)`
-- `node_install(server?, domain?)`
-- `node_run_script(server?, domain?, script)` — runs an arbitrary
-  `package.json` script. Treat it as a security caveat: the script string is
-  passed to Plesk's Node.js extension and can execute any command defined in the
-  project's `package.json` (or equivalent lifecycle script).
-- `node_restart(server?, domain?)`
-- `node_start(server?, domain?)`
-- `node_stop(server?, domain?)`
-- `node_status(server?, domain?)`
+### `domains_list(server?, includeAliases?)`
 
-If the server has multiple domains, you must pass `domain` or the tool returns
-`PLESK_DOMAIN_REQUIRED`.
+Returns every domain and subdomain of the server: `id`, `name`, `asciiName`,
+`type` (`domain`/`subdomain`), `baseDomainId`, `hostingType`, `wwwRoot`, and
+`aliases`. Not paginated. Domains with `hosting_type` other than `virtual`
+(forwarding) are included but cannot run PHP.
+
+## Plesk CLI
+
+### `plesk_cli(server?, id, params?)`
+
+Runs `POST /api/v2/cli/{id}/call`, that is `plesk bin <id> <params>` as root.
+
+- `id` allowlist: `client`, `database`, `dns`, `domain`, `extension`, `ip`,
+  `php_handler`, `site`, `subdomain`, `webspace`.
+- Read-only when every flag is `--info`, `--list`, `--version`, `--show` or
+  `--help`. Otherwise it is a write: confirmation in `confirm` mode, and
+  `CLI_WRITE_BLOCKED` in `full`/`client` unless `PLESK_MCP_ALLOW_CLI_WRITE=1`.
+- Replaces the former `deps_install` and `node_*` tools, for example
+  `id: "extension"`, `params: ["--exec", "nodejs", "--list"]`.
+
+## XML API
+
+### `plesk_xml_call(server?, packet)`
+
+Sends a packet to `https://<panel>:8443/enterprise/control/agent.php` and returns
+the parsed `<packet>` response.
+
+- Only `<get>` operators are accepted. `set`/`add`/`del`/`update` are rejected
+  with `XML_API_READ_ONLY` before the request is sent.
+- Packet size is capped at 64 KB.
+- Requires username/password auth (`XML_API_AUTH_UNSUPPORTED` in `apiKey` mode).
+- `hosting` datasets expose `php_handler_id`; `php-handler/get` exposes
+  `full-version`.
 
 ## Databases
 
@@ -181,13 +193,6 @@ Searches objects in `information_schema`. `database` is required unless
 `object_type: "schema"`. It keeps the DBHub contract (`object_type`, `pattern`,
 `table`, `detail_level`, `limit`) using `database` instead of `schema`. `limit`
 defaults to 100 (max 1000).
-
-## Dependencies
-
-### `deps_install(server?, domain?, command, cwd?)`
-
-Runs an allowed installer: `npm`, `pnpm`, `yarn`, `composer`, `bundle`, `pip`,
-`pip3`. It is not an unrestricted shell.
 
 ## Logs
 

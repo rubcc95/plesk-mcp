@@ -120,7 +120,7 @@ The `name` value is what the tool receives in `pc`.
 
 Plesk tools that operate on a subscription accept an optional `domain`:
 
-- `file_*`, `logs`, `deps_install`, `doctor`, and `node_*`.
+- `file_*`, `logs`, `domains_list`, `plesk_xml_call`, `doctor`, and `plesk_cli`.
 
 Resolution rule:
 

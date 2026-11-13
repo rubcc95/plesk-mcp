@@ -3,18 +3,25 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { runCli } from "./cli.js";
 import { loadRegistry } from "./config/load.js";
 import { createToolContext } from "./tools/context.js";
-import { registerDepsTools } from "./tools/deps.js";
+import { registerCliTool } from "./tools/cli.js";
+import { registerDomainTools } from "./tools/domains.js";
 import { registerFileTools } from "./tools/files.js";
 import { registerLogTools } from "./tools/logs.js";
-import { registerNodeTools } from "./tools/node.js";
 import { createToolRegistrar, resolveAccessMode } from "./tools/policy.js";
 import { registerConfigErrorTools, registerProjectTools } from "./tools/project.js";
+import { registerXmlTools } from "./tools/xml.js";
 import { registerSqlTools } from "./sql/tools.js";
 import { asAppError } from "./util/errors.js";
 
 const VERSION = __PKG_VERSION__;
 
-const CLI_COMMANDS = new Set(["init", "doctor", "servers", "project-info"]);
+const CLI_COMMANDS = new Set([
+  "init",
+  "doctor",
+  "servers",
+  "project-info",
+  "inventory"
+]);
 const CLI_FLAGS = new Set(["--help", "-h", "--version", "-V"]);
 
 function isCliInvocation(argv: string[]): boolean {
@@ -37,8 +44,9 @@ async function main(): Promise<void> {
     const ctx = createToolContext(loaded, accessMode);
     registerProjectTools(registrar, ctx);
     registerFileTools(registrar, ctx);
-    registerNodeTools(registrar, ctx);
-    registerDepsTools(registrar, ctx);
+    registerDomainTools(registrar, ctx);
+    registerCliTool(registrar, ctx);
+    registerXmlTools(registrar, ctx);
     registerLogTools(registrar, ctx);
     registerSqlTools(registrar, ctx);
   } catch (error) {

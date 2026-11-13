@@ -14,7 +14,8 @@ import {
 import { PleskClient } from "./plesk/client.js";
 import type { ExecAccess } from "./plesk/exec-access.js";
 import { discoverShellDomain, resolveExecAccess } from "./plesk/exec-access.js";
-import { asAppError } from "./util/errors.js";
+import { buildInventory, inventoryMarkdown } from "./inventory.js";
+import { AppError, asAppError } from "./util/errors.js";
 
 const VERSION = __PKG_VERSION__;
 const EMPTY_REGISTRY = { servers: [], localDatabases: [] };
@@ -66,6 +67,21 @@ program
     const loaded = await loadRegistry(program.opts().globalConfig as string | undefined);
     printSummary(loaded);
   });
+
+program
+  .command("inventory")
+  .description("Lists every domain of a server with its PHP version")
+  .option("-s, --server <name>", "name of the server (defaults to the default server)")
+  .option("-o, --out <file>", "write the Markdown report to this file")
+  .option("--json", "print JSON instead of Markdown")
+  .action(
+    async (options: { server?: string; out?: string; json?: boolean }) => {
+      await inventory(
+        program.opts().globalConfig as string | undefined,
+        options
+      );
+    }
+  );
 
 /** CLI entry point. It does not run when the module is imported. */
 export async function runCli(argv: string[] = process.argv): Promise<void> {
@@ -249,6 +265,65 @@ async function addCheck(
       message: appError.message,
       hint: appError.hint
     });
+  }
+}
+
+async function inventory(
+  globalConfigPath: string | undefined,
+  options: { server?: string; out?: string; json?: boolean }
+): Promise<void> {
+  const loaded = await loadRegistry(globalConfigPath);
+  const name = options.server ?? loaded.defaultServer;
+
+  if (!name) {
+    throw new AppError("SERVER_NOT_FOUND", "No Plesk servers are configured", {
+      hint: "Add servers to `servers` in the global or local config."
+    });
+  }
+
+  const entry = loaded.servers.find((server) => server.name === name);
+  if (!entry) {
+    throw new AppError("SERVER_NOT_FOUND", `Server "${name}" does not exist`, {
+      hint: `Available servers: ${loaded.servers.map((server) => server.name).join(", ") || "(none)"}`
+    });
+  }
+
+  const client = new PleskClient(materializeServer(entry));
+  const result = await buildInventory(entry.name, client);
+
+  if (!result.ok) {
+    console.error(`FAIL ${entry.name}: ${result.reason}`);
+    for (const missing of result.missing) {
+      console.error(`  - ${missing.name}: ${missing.problem}`);
+    }
+    console.error("No report was written.");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (options.json) {
+    const payload = {
+      server: result.inventory.server,
+      total: result.inventory.hosts.length,
+      apiTotal: result.apiTotal,
+      hosts: result.inventory.hosts,
+      aliases: result.inventory.aliases,
+      handlers: result.inventory.handlers
+    };
+    const text = `${JSON.stringify(payload, null, 2)}\n`;
+    if (options.out) await writeFile(options.out, text, "utf8");
+    else console.log(text.trimEnd());
+    return;
+  }
+
+  const markdown = inventoryMarkdown(result.inventory, result.apiTotal);
+  if (options.out) {
+    await writeFile(options.out, markdown, "utf8");
+    console.log(
+      `${entry.name}: ${result.inventory.hosts.length} dominios -> ${options.out}`
+    );
+  } else {
+    console.log(markdown);
   }
 }
 
